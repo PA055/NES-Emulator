@@ -73,29 +73,120 @@ class olc6502:
     #######################
 
     def IMP(self):
-        pass
+        self.fetched = self.a
+        return 0
+        
     def ZP0(self):
-        pass
+        self.addr_abs = self.read(self.pc)
+        self.pc += 1
+        self.addr_abs &= 0x00FF
+        return 0
+        
     def ZPY(self):
-        pass
+        self.addr_abs = self.read(self.pc) + self.y
+        self.pc += 1
+        self.addr_abs &= 0x00FF
+        return 0
+        
     def ABS(self):
-        pass
+        lo = self.read(self.pc)
+        self.pc += 1
+        hi = self.read(self.pc)
+        self.pc += 1
+
+        self.addr_abs = (hi << 8) | lo
+
+        return 0
+        
     def ABY(self):
-        pass
+        lo = self.read(self.pc)
+        self.pc += 1
+        hi = self.read(self.pc)
+        self.pc += 1
+
+        self.addr_abs = (hi << 8) | lo
+        self.addr_abs += self.y
+        
+        if (self.addr_abs & 0xFF00) != (hi << 8):
+            return 1
+        else:
+            return 0
+        
     def IZX(self):
-        pass
+        t = self.read(self.pc)
+        self.pc += 1
+
+        lo = self.read((t + self.x) & 0x00FF)
+        hi = self.read((t + self.x + 1) & 0x00FF)
+
+        self.addr_abs = (hi << 8) | lo
+        
+        return 0
+        
     def IMM(self):
-        pass
+        self.pc += 1
+        self.addr_abs = self.pc;
+        return 0
+        
     def ZPX(self):
-        pass
-    def REL(self):
-        pass
+        self.addr_abs = self.read(self.pc) + self.x
+        self.pc += 1
+        self.addr_abs &= 0x00FF
+        return 0
+        
     def ABX(self):
-        pass
+        lo = self.read(self.pc)
+        self.pc += 1
+        hi = self.read(self.pc)
+        self.pc += 1
+
+        self.addr_abs = (hi << 8) | lo
+        self.addr_abs += self.x
+
+        if (self.addr_abs & 0xFF00) != (hi << 8):
+            return 1
+        else:
+            return 0
+        
     def IND(self):
-        pass
+        ptr_lo = self.read(self.pc)
+        self.pc += 1
+        ptr_hi = self.read(self.pc)
+        self.pc += 1
+
+        ptr = (ptr_hi << 8) | ptr_lo
+
+        if ptr_lo  == 0x00FF:
+            self.addr_abs = (read(ptr & 0xFF00) << 8) | read(ptr + 0);
+        else:
+            self.addr_abs = (read(ptr + 1) << 8) | read(ptr + 0);
+
+        return 0
+        
     def IZY(self):
-        pass
+        t = self.read(self.pc)
+        self.pc += 1
+
+        lo = self.read(t & 0x00FF)
+        hi = self.read((t + 1) & 0x00FF)
+
+        self.addr_abs = (hi << 8) | lo
+        self.addr_abs += self.y
+
+        if (self.addr_abs & 0xFF00) != (hi << 8):
+            return 1
+        else:
+            return 0
+
+    def REL():
+        self.addr_rel = self.read(self.pc)
+        self.pc += 1
+
+        if self.addr_rel & 0x80:
+            self.addr_rel |= 0xFF00
+
+        return 0
+        
 
 
     ##############
@@ -228,7 +319,7 @@ class olc6502:
         
     def clock(self):
         if self.cycles == 0:
-            self.opcode = read(self.pc)
+            self.opcode = self.read(self.pc)
             self.pc += 1
             
             self.cycles = self.lookup[self.opcode].cycles
