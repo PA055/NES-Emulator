@@ -51,7 +51,7 @@ def Start(game):
 def Update(game):
     return True
 
-gameEngine = PixelEngine('NES Demo', 680, 480, 2, 2, 0.5)
+gameEngine = PixelEngine('NES Demo', 480, 680, 2, 2, 0.5)
 gameEngine.setBackground(Color.DARK_BLUE)
 
 gameEngine.Start(Start, Update)
