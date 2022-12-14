@@ -9,6 +9,15 @@ class INSTRUCTION:
     addrmode: Callable
     cycles: int = 0
 
+C = 0
+Z = 1
+I = 2
+D = 3
+B = 4
+U = 5
+V = 6
+N = 7
+
 class olc6502:    
     def __init__(self):
         self.bus = None
@@ -24,6 +33,7 @@ class olc6502:
         self.addr_rel = 0x0000
         self.opcode   = 0x00
         self.cycles   = 0
+        self.temp     = 0
 
         self.lookup = [
             INSTRUCTION("BRK", self.BRK, self.IMM, 7), INSTRUCTION("ORA", self.ORA, self.IZX, 6), INSTRUCTION("???", self.XXX, self.IMP, 2), INSTRUCTION("???", self.XXX, self.IMP, 8), INSTRUCTION("???", self.NOP, self.IMP, 3), INSTRUCTION("ORA", self.ORA, self.ZP0, 3), INSTRUCTION("ASL", self.ASL, self.ZP0, 5), INSTRUCTION("???", self.XXX, self.IMP, 5), INSTRUCTION("PHP", self.PHP, self.IMP, 3), INSTRUCTION("ORA", self.ORA, self.IMM, 2), INSTRUCTION("ASL", self.ASL, self.IMP, 2), INSTRUCTION("???", self.XXX, self.IMP, 2), INSTRUCTION("???", self.NOP, self.IMP, 4), INSTRUCTION("ORA", self.ORA, self.ABS, 4), INSTRUCTION("ASL", self.ASL, self.ABS, 6), INSTRUCTION("???", self.XXX, self.IMP, 6),
@@ -57,10 +67,12 @@ class olc6502:
         self.bus.write(a, d)
 
     def fetch():
-        pass
+        if self.lookup[self.opcode].addrmode != self.IMP:
+            self.fetched = self.read(self.addr_abs)
+        return self.fetched
 
     def getFlag(self, flagNo: int):
-        return (self.status & (1 << flagNo)) >> flagNo
+        return (self.status >> flagNo) & 1
 
     def setFlag(self, flagNo: int, value: bool):
         if value:
@@ -68,10 +80,94 @@ class olc6502:
         else:
             self.status &= ~(1 << flagNo)
 
-    #######################
-    #  ADDERESSING MODES  #
-    #######################
+    
+    def reset(self):
+        self.addr_abs = 0xFFFC
+        lo = self.read(self.addr_abs + 0)
+        hi = self.read(self.addr_abs + 1)
 
+        self.pc = (hi << 8) | lo
+
+        self.a = 0
+        self.x = 0
+        self.y = 0
+        self.stkp = 0xFD
+        self.status = 0x00 | (1 << U)
+
+        self.addr_abs = 0x0000
+        self.addr_rel = 0x0000
+        self.fetched = 0x00
+
+        self.cycles = 8
+        
+    def irq(self):
+        if (self.getFlag(I) == 0):
+            self.write(0x0100 + self.stkp, (self.pc >> 8) & 0x00FF)
+            self.stkp -= 1
+            self.write(0x0100 + self.stkp, self.pc & 0x00FF)
+            self.stkp -= 1
+
+            self.setFlag(B, 0)
+            self.setFlag(U, 1)
+            self.setFlag(I, 1)
+            self.write(0x0100 + self.stkp, self.status)
+            self.stkp -= 1
+
+            self.addr_abs = 0xFFFE
+            lo = self.read(self.addr_abs + 0)
+            hi = self.read(self.addr_abs + 1)
+            self.pc = (hi << 8) | lo
+
+            self.cycles = 7
+        
+    def nmi(self):
+        self.write(0x0100 + self.stkp, (self.pc >> 8) & 0x00FF)
+        self.stkp -= 1
+        self.write(0x0100 + self.stkp, self.pc & 0x00FF)
+        self.stkp -= 1
+        
+        self.setFlag(B, 0)
+        self.setFlag(U, 1)
+        self.setFlag(I, 1)
+        self.write(0x0100 + self.stkp, self.status)
+        self.stkp -= 1
+
+        self.addr_abs = 0xFFFA
+        lo = self.read(self.addr_abs + 0)
+        hi = self.read(self.addr_abs + 1)
+        self.pc = (hi << 8) | lo
+
+        self.cycles = 8
+        
+    def clock(self):
+        if self.cycles == 0:
+            self.opcode = self.read(self.pc)
+            self.setFlag(U, True)
+            self.pc += 1
+            
+            self.cycles = self.lookup[self.opcode].cycles
+            
+            additional_cycle_1 = (self.lookup[self.opcode].addrmode)()
+            
+            additional_cycle_2 = (self.lookup[self.opcode].operate)()
+
+            self.cycles += (additional_cycle_1 & additional_cycle_2)
+
+            self.setFlag(U, True)
+
+        self.cycles -= 1
+
+    def complete(self):
+        return self.cycles == 0
+
+    def disassemble(self, nStart, nStop):
+        pass
+
+    #######################
+    #  ADDRESSING MODES  #
+    #######################
+    #region AddressingModes
+    
     def IMP(self):
         self.fetched = self.a
         return 0
@@ -178,7 +274,7 @@ class olc6502:
         else:
             return 0
 
-    def REL():
+    def REL(self):
         self.addr_rel = self.read(self.pc)
         self.pc += 1
 
@@ -187,82 +283,368 @@ class olc6502:
 
         return 0
         
-
-
+    #endregion
+    
     ##############
     #  OP CODES  #
     ##############
 
     def ADC(self):
-        pass
+        self.fetch()
+
+        self.temp = self.a + self.fetched + self.getFlag(C)
+
+        self.setFlag(C, self.temp > 255)
+        self.setFlag(Z, (self.temp & 0x00FF) == 0)
+        self.setFlag(V, (~(self.a ^ self.fetched) & (self.a ^ self.temp)) & 0x0080)
+        self.setFlag(N, self.temp & 0x80)
+
+        a = self.temp & 0x00FF
+
+        return 1
+        
     def AND(self):
-        pass
+        self.fetch()
+        
+        self.a = self.a & self.fetched
+        
+        self.setFlag(Z, self.a == 0x00)
+        self.setFlag(N, self.a & 0x80)
+        
+        return 1
+        
     def ASL(self):
-        pass
+        self.fetch()
+        self.temp = self.fetched << 1
+
+        self.setFlag(C, (self.temp & 0xFF00) > 0)
+        self.setFlag(Z, (self.temp & 0x00FF) == 0x00)
+        self.setFlag(N, self.temp & 0x80)
+
+        if self.lookup[self.opcode].addrmode == self.IMP:
+            self.a = self.temp & 0x00FF
+        else:
+            self.write(self.addr_abs, self.temp & 0x00FF);
+
+        return 0
+        
     def BCC(self):
-        pass
+        if self.getFlag(C) == 0:
+            self.cycles += 1
+            self.addr_abs = self.pc + self.addr_rel
+
+            if (self.addr_abs & 0xFF00) != (self.pc & 0xFF00):
+                self.cycles += 1
+
+            self.pc = self.addr_abs
+
+        return 0
+            
     def BCS(self):
-        pass
+        if self.getFlag(C) == 1:
+            self.cycles += 1
+            self.addr_abs = self.pc + self.addr_rel
+
+            if (self.addr_abs & 0xFF00) != (self.pc & 0xFF00):
+                self.cycles += 1
+
+            self.pc = self.addr_abs
+
+        return 0
+        
     def BEQ(self):
-        pass
+        if self.getFlag(Z) == 1:
+            self.cycles += 1
+            self.addr_abs = self.pc + self.addr_rel
+
+            if (self.addr_abs & 0xFF00) != (self.pc & 0xFF00):
+                self.cycles += 1
+
+            self.pc = self.addr_abs
+
+        return 0
+        
     def BIT(self):
-        pass
+        self.fetch()
+        self.temp = self.a & self.fetched
+
+        self.setFlag(Z, (self.temp & 0x00FF) == 0x00)
+        self.setFlag(N, self.fetched & (1 << 7))
+        self.setFlag(V, self.fetched & (1 << 6))
+
+        return 0
+        
     def BMI(self):
-        pass
+        if self.getFlag(N) == 1:
+            self.cycles += 1
+            self.addr_abs = self.pc + self.addr_rel
+
+            if (self.addr_abs & 0xFF00) != (self.pc & 0xFF00):
+                self.cycles += 1
+
+            self.pc = self.addr_abs
+
+        return 0
+        
     def BNE(self):
-        pass
+        if self.getFlag(Z) == 0:
+            self.cycles += 1
+            self.addr_abs = self.pc + self.addr_rel
+
+            if (self.addr_abs & 0xFF00) != (self.pc & 0xFF00):
+                self.cycles += 1
+
+            self.pc = self.addr_abs
+
+        return 0
+        
     def BPL(self):
-        pass
+        if self.getFlag(N) == 0:
+            self.cycles += 1
+            self.addr_abs = self.pc + self.addr_rel
+
+            if (self.addr_abs & 0xFF00) != (self.pc & 0xFF00):
+                self.cycles += 1
+
+            self.pc = self.addr_abs
+
+        return 0
+        
     def BRK(self):
-        pass
+        self.pc += 1
+	
+	    self.SetFlag(I, 1)
+    	self.write(0x0100 + self.stkp, (self.pc >> 8) & 0x00FF)
+    	self.stkp -= 1
+    	self.write(0x0100 + self.stkp, self.pc & 0x00FF)
+    	self.stkp -= 1
+    
+    	self.SetFlag(B, 1)
+    	self.write(0x0100 + self.stkp, self.status)
+    	self.stkp -= 1
+    	self.SetFlag(B, 0)
+    
+    	self.pc = self.read(0xFFFE) | (self.read(0xFFFF) << 8)
+        
+    	return 0
+        
     def BVC(self):
-        pass
+        if self.getFlag(V) == 0:
+            self.cycles += 1
+            self.addr_abs = self.pc + self.addr_rel
+
+            if (self.addr_abs & 0xFF00) != (self.pc & 0xFF00):
+                self.cycles += 1
+
+            self.pc = self.addr_abs
+
+        return 0
+        
     def BVS(self):
-        pass
+        if self.getFlag(V) == 1:
+            self.cycles += 1
+            self.addr_abs = self.pc + self.addr_rel
+
+            if (self.addr_abs & 0xFF00) != (self.pc & 0xFF00):
+                self.cycles += 1
+
+            self.pc = self.addr_abs
+
+        return 0
+        
     def CLC(self):
-        pass
+        self.setFlag(C, False)
+        return 0
+        
     def CLD(self):
-        pass
+        self.setFlag(D, False)
+        return 0
+        
     def CLI(self):
-        pass
+        self.setFlag(I, False)
+        return 0
+        
     def CLV(self):
-        pass
+        self.setFlag(V, False)
+        return 0
+        
     def CMP(self):
-        pass
+        self.fetch()
+        self.temp = self.a - self.fetched
+
+        self.setFlag(C, self.a >= self.fetched)
+        self.setFlag(Z, (self.temp & 0x00FF) == 0x0000)
+	    self.setFlag(N, self.temp & 0x0080)
+
+        return 1
+        
     def CPX(self):
-        pass
+        self.fetch()
+        self.temp = self.x - self.fetched
+
+        self.setFlag(C, self.x >= self.fetched)
+        self.setFlag(Z, (self.temp & 0x00FF) == 0x0000)
+	    self.setFlag(N, self.temp & 0x0080)
+
+        return 0
+        
     def CPY(self):
-        pass
+        self.fetch()
+        self.temp = self.y - self.fetched
+
+        self.setFlag(C, self.y >= self.fetched)
+        self.setFlag(Z, (self.temp & 0x00FF) == 0x0000)
+	    self.setFlag(N, self.temp & 0x0080)
+
+        return 0
+        
     def DEC(self):
-        pass
+        self.fetch()
+        self.temp = self.fetched - 1
+        self.write(self.addr_abs, temp & 0x00FF)
+        
+        self.setFlag(Z, (self.temp & 0x00FF) == 0x0000)
+	    self.setFlag(N, self.temp & 0x0080)
+        
+        return 0
+        
     def DEX(self):
-        pass
+        self.x -= 1
+
+        self.setFlag(Z, self.x == 0x00)
+	    self.setFlag(N, self.x & 0x80)
+
+        return 0
+        
     def DEY(self):
-        pass
+        self.y -= 1
+
+        self.setFlag(Z, self.y == 0x00)
+	    self.setFlag(N, self.y & 0x80)
+
+        return 0
+        
     def EOR(self):
-        pass
+        self.fetch()
+        self.a = self.a ^ self.fetched
+        
+        self.setFlag(Z, self.a == 0x00)
+	    self.setFlag(N, self.a & 0x80)
+        
+        return 1
+        
     def INC(self):
-        pass
+        self.fetch()
+        self.temp = self.fetched + 1
+        self.write(self.addr_abs, temp & 0x00FF)
+        
+        self.setFlag(Z, (self.temp & 0x00FF) == 0x0000)
+	    self.setFlag(N, self.temp & 0x0080)
+        
+        return 0
+        
     def INX(self):
-        pass
+        self.x += 1
+
+        self.setFlag(Z, self.x == 0x00)
+	    self.setFlag(N, self.x & 0x80)
+
+        return 0
+        
     def INY(self):
-        pass
+        self.y += 1
+
+        self.setFlag(Z, self.y == 0x00)
+	    self.setFlag(N, self.y & 0x80)
+
+        return 0
+        
     def JMP(self):
-        pass
+        self.pc = self.addr_abs
+        return 0
+        
     def JSR(self):
-        pass
+        self.pc -= 1
+
+        self.write(0x0100 + self.stkp, (self.pc >> 8) & 0x00FF)
+	    self.stkp -= 1
+    	self.write(0x0100 + self.stkp, self.pc & 0x00FF)
+    	self.stkp -= 1
+    
+    	self.pc = self.addr_abs
+    	return 0
+        
     def LDA(self):
-        pass
+        self.fetch()
+        self.a = self.fetched
+        
+        self.setFlag(Z, self.a == 0x00)
+	    self.setFlag(N, self.a & 0x80)
+        
+        return 1
+        
     def LDX(self):
-        pass
+        self.fetch()
+        self.x = self.fetched
+        
+        self.setFlag(Z, self.x == 0x00)
+	    self.setFlag(N, self.x & 0x80)
+        
+        return 0
+        
     def LDY(self):
-        pass
+        self.fetch()
+        self.y = self.fetched
+        
+        self.setFlag(Z, self.y == 0x00)
+	    self.setFlag(N, self.y & 0x80)
+        
+        return 0
+        
     def LSR(self):
-        pass
+        self.fetch()
+        
+        self.setFlag(C, self.fetched & 0x0001)
+        self.temp = fetched >> 1
+        self.setFlag(Z, (self.temp & 0x00FF) == 0x0000)
+	    self.setFlag(N, self.temp & 0x0080)
+
+        if self.loopup[self.opcode].addrmode == self.IMP:
+            self.a = self.temp & 0x00FF
+        else:
+            self.write(self.addr_abs, self.temp & 0x00FF)
+
+        return 0
+        
     def NOP(self):
-        pass
+        # Just a big switch statement
+        if (self.opcode == 0x1C):
+            pass
+        elif (self.opcode == 0x3C):
+            pass
+        elif (self.opcode == 0x5C):
+            pass
+        elif (self.opcode == 0x7C):
+            pass
+        elif (self.opcode == 0xDC):
+            pass
+        elif (self.opcode == 0xFC):
+            return 1
+        else:
+            pass
+
+        return 0
+        
+        
     def ORA(self):
-        pass
+        self.fetch()
+        self.a = self.a | self.fetched
+        
+        self.setFlag(Z, self.a == 0x00)
+	    self.setFlag(N, self.a & 0x80)
+        
+        return 1
+        
     def PHA(self):
         pass
     def PHP(self):
@@ -280,7 +662,21 @@ class olc6502:
     def RTS(self):
         pass
     def SBC(self):
-        pass
+        self.fetch()
+
+        value = fetched ^ 0x00FF
+
+        self.temp = self.a + value + self.getFlag(C)
+        
+        self.setFlag(C, self.temp > 255)
+        self.setFlag(Z, (self.temp & 0x00FF) == 0)
+        self.setFlag(V, (self.temp ^ self.a) & (self.temp ^ value) & 0x0080)
+        self.setFlag(N, self.temp & 0x80)
+
+        a = self.temp & 0x00FF
+
+        return 1
+        
     def SEC(self):
         pass
     def SED(self):
@@ -308,33 +704,4 @@ class olc6502:
     def XXX(self):
         pass
 
-    def reset(self):
-        pass
-        
-    def irq(self):
-        pass
-        
-    def nmi(self):
-        pass
-        
-    def clock(self):
-        if self.cycles == 0:
-            self.opcode = self.read(self.pc)
-            self.pc += 1
-            
-            self.cycles = self.lookup[self.opcode].cycles
-            
-            additional_cycle_1 = (self.lookup[self.opcode].addrmode)()
-            
-            additional_cycle_2 = (self.lookup[self.opcode].operate)()
-
-            self.cycles += (additional_cycle_1 & additional_cycle_2)
-
-        self.cycles -= 1
-
-    def complete(self):
-        pass
-
-    def disassemble(self, nStart, nStop):
-        pass
     
