@@ -161,7 +161,99 @@ class olc6502:
         return self.cycles == 0
 
     def disassemble(self, nStart, nStop):
-        pass
+        addr = nStart
+        value, lo, hi = 0x00, 0x00, 0x00
+        mapLines = {}
+        line_addr = 0
+
+        def hex(n, d):
+            s = ['0' for i in range(d)]
+            for i in range(d-1, -1, -1):
+                s[i] = "0123456789ABCDEF"[n & 0xF]
+                n >>= 4
+            return ''.join(s)
+
+        while addr <= nStop:
+            line_addr = addr
+            sInst = "$" + hex(addr, 4) + ': '
+            opcode = self.bus.read(addr, True)
+            addr += 1
+            sInst += self.lookup[self.opcode].name + ' '
+
+            if self.lookup[self.opcode].addrmode == self.IMP:
+                sInst += ' {IMP}'
+                
+            elif self.lookup[self.opcode].addrmode == self.IMM:
+                value = self.bus.read(addr, True)
+                addr += 1
+                sInst += "#$" + hex(value, 2) + " {IMM}"
+                
+            elif self.lookup[self.opcode].addrmode == self.ZP0:
+                lo = self.bus.read(addr, True)
+                addr += 1
+                hi = 0x00
+                sInst += "$" + hex(lo, 2) + " {ZP0}";
+                
+            elif self.lookup[self.opcode].addrmode == self.ZPX:
+                lo = self.bus.read(addr, True)
+                addr += 1
+                hi = 0x00
+                sInst += "$" + hex(lo, 2) + ", X {ZPX}";
+                
+            elif self.lookup[self.opcode].addrmode == self.ZPY:
+                lo = self.bus.read(addr, True)
+                addr += 1
+                hi = 0x00
+                sInst += "$" + hex(lo, 2) + ", Y {ZPY}";
+                
+            elif self.lookup[self.opcode].addrmode == self.IZX:
+                lo = self.bus.read(addr, True)
+                addr += 1
+                hi = 0x00
+                sInst += "($" + hex(lo, 2) + ", X) {IZX}";
+                
+            elif self.lookup[self.opcode].addrmode == self.IZY:
+                lo = self.bus.read(addr, True)
+                addr += 1
+                hi = 0x00
+                sInst += "($" + hex(lo, 2) + ", Y) {IZY}";
+                
+            elif self.lookup[self.opcode].addrmode == self.ABS:
+                lo = self.bus.read(addr, True)
+                addr += 1
+                hi = self.bus.read(addr, True)
+                addr += 1
+                sInst += "$" + hex((uint16_t)(hi << 8) | lo, 4) + " {ABS}";
+                
+            elif self.lookup[self.opcode].addrmode == self.ABX:
+                lo = self.bus.read(addr, True)
+                addr += 1
+                hi = self.bus.read(addr, True)
+                addr += 1
+                sInst += "$" + hex((uint16_t)(hi << 8) | lo, 4) + ", X {ABX}";
+                
+            elif self.lookup[self.opcode].addrmode == self.ABY:
+                lo = self.bus.read(addr, True)
+                addr += 1
+                hi = self.bus.read(addr, True)
+                addr += 1
+                sInst += "$" + hex((uint16_t)(hi << 8) | lo, 4) + ", Y {ABY}";
+                
+            elif self.lookup[self.opcode].addrmode == self.IND:
+                lo = self.bus.read(addr, True)
+                addr += 1
+                hi = self.bus.read(addr, True)
+                addr += 1
+                sInst += "($" + hex((uint16_t)(hi << 8) | lo, 4) + ") {IND}";
+                
+            elif self.lookup[self.opcode].addrmode == self.REL:
+                value = self.bus.read(addr, True)
+                addr += 1
+                sInst += "$" + hex(value, 2) + " [$" + hex(addr + value, 4) + "] {REL}";
+
+            mapLines[line_addr] = sInst
+
+        return mapLines
 
     #######################
     #  ADDRESSING MODES  #
@@ -646,21 +738,89 @@ class olc6502:
         return 1
         
     def PHA(self):
-        pass
+        self.write(0x0100 + self.stkp, self.a)
+        self.stkp -= 1
+        return 0
+        
     def PHP(self):
-        pass
+        self.write(0x0100 + self.stkp, self.status | (1 << B) | (1 << U))
+        
+        self.setFlag(B, 0)
+        self.setFlag(U, 0)
+        
+        self.stkp -= 1
+        return 0
+        
     def PLA(self):
-        pass
+        self.stkp += 1
+        self.a = self.read(0x0100 + self.stkp)
+        
+        self.setFlag(Z, self.a == 0x00)
+        self.setFlag(N, self.a & 0x80)
+
+        return 0
+        
     def PLP(self):
-        pass
+        self.stkp += 1
+        self.status = self.read(0x0100 + self.stkp)
+        
+        self.setFlag(U, True)
+
+        return 0
+        
     def ROL(self):
-        pass
+        self.fetch()
+        self.temp = self.fetched << 1 | self.getFlag(C)
+        
+        self.setFlag(C, self.fetched & 0xFF00)
+        self.setFlag(Z, (self.temp & 0x00FF) == 0x0000)
+	    self.setFlag(N, self.temp & 0x0080)
+
+        if self.loopup[self.opcode].addrmode == self.IMP:
+            self.a = self.temp & 0x00FF
+        else:
+            self.write(self.addr_abs, self.temp & 0x00FF)
+
+        return 0
+        
     def ROR(self):
-        pass
+        self.fetch()
+        self.temp = (self.getFlag(C) << 7) | (self.fetched >> 1)
+        
+        self.setFlag(C, self.fetched & 0x01)
+        self.setFlag(Z, (self.temp & 0x00FF) == 0x00)
+	    self.setFlag(N, self.temp & 0x0080)
+
+        if self.loopup[self.opcode].addrmode == self.IMP:
+            self.a = self.temp & 0x00FF
+        else:
+            self.write(self.addr_abs, self.temp & 0x00FF)
+
+        return 0
+        
     def RTI(self):
-        pass
+        self.stkp += 1
+        self.read(0x0100 + self.stkp)
+        self.status &= ~(1 << B)
+        self.status &= ~(1 << U)
+
+        self.stkp += 1
+        self.pc = self.read(0x0100 + self.stkp)
+        self.stkp += 1
+        self.pc |= self.read(0x0100 + self.stkp) << 8
+
+        return 0
+        
     def RTS(self):
-        pass
+        self.stkp += 1
+        self.pc = self.read(0x0100 + self.stkp)
+        self.stkp += 1
+        self.pc |= self.read(0x0100 + self.stkp) << 8
+
+        self.pc += 1
+
+        return 0
+        
     def SBC(self):
         self.fetch()
 
@@ -678,30 +838,77 @@ class olc6502:
         return 1
         
     def SEC(self):
-        pass
+        self.setFlag(C, True)
+        return 0
+        
     def SED(self):
-        pass
+        self.setFlag(D, True)
+        return 0
+        
     def SEI(self):
-        pass
+        self.setFlag(I, True)
+        return 0
+        
     def STA(self):
-        pass
+        self.write(self.addr_abs, self.a)
+        return 0
+        
     def STX(self):
-        pass
+        self.write(self.addr_abs, self.x)
+        return 0
+        
     def STY(self):
-        pass
+        self.write(self.addr_abs, self.y)
+        return 0
+        
     def TAX(self):
-        pass
-    def TAY(self):
-        pass
-    def TSX(self):
-        pass
-    def TXA(self):
-        pass
-    def TXS(self):
-        pass
-    def TYA(self):
-        pass
-    def XXX(self):
-        pass
+        self.x = self.a
 
-    
+        self.setFlag(Z, self.x == 0x00)
+        self.setFlag(N, self.x & 0x80)
+
+        return 0
+        
+    def TAY(self):
+        self.y = self.a
+
+        self.setFlag(Z, self.y == 0x00)
+        self.setFlag(N, self.y & 0x80)
+
+        return 0
+        
+    def TSX(self):
+        self.x = self.stkp
+
+        self.setFlag(Z, self.x == 0x00)
+        self.setFlag(N, self.x & 0x80)
+
+        return 0
+        
+    def TXA(self):
+        self.a = self.x
+
+        self.setFlag(Z, self.a == 0x00)
+        self.setFlag(N, self.a & 0x80)
+
+        return 0
+        
+    def TXS(self):
+        self.stkp = self.x
+        return 0
+        
+    def TYA(self):
+        self.a = self.y
+
+        self.setFlag(Z, self.a == 0x00)
+        self.setFlag(N, self.a & 0x80)
+
+        return 0
+        
+    def XXX(self):
+        return 0
+
+
+###################
+#   End Of File   #
+###################
