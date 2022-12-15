@@ -1,5 +1,5 @@
-from BusClass import Bus
 from dataclasses import dataclass
+from collections import OrderedDict
 from collections.abc import Callable
 
 @dataclass
@@ -8,6 +8,7 @@ class INSTRUCTION:
     operate: Callable
     addrmode: Callable
     cycles: int = 0
+
 
 C = 0
 Z = 1
@@ -66,7 +67,7 @@ class olc6502:
     def write(self, a, d):
         self.bus.write(a, d)
 
-    def fetch():
+    def fetch(self):
         if self.lookup[self.opcode].addrmode != self.IMP:
             self.fetched = self.read(self.addr_abs)
         return self.fetched
@@ -163,7 +164,7 @@ class olc6502:
     def disassemble(self, nStart, nStop):
         addr = nStart
         value, lo, hi = 0x00, 0x00, 0x00
-        mapLines = {}
+        mapLines = OrderedDict()
         line_addr = 0
 
         def hex(n, d):
@@ -178,75 +179,75 @@ class olc6502:
             sInst = "$" + hex(addr, 4) + ': '
             opcode = self.bus.read(addr, True)
             addr += 1
-            sInst += self.lookup[self.opcode].name + ' '
+            sInst += self.lookup[opcode].name + ' '
 
-            if self.lookup[self.opcode].addrmode == self.IMP:
+            if self.lookup[opcode].addrmode == self.IMP:
                 sInst += ' {IMP}'
                 
-            elif self.lookup[self.opcode].addrmode == self.IMM:
+            elif self.lookup[opcode].addrmode == self.IMM:
                 value = self.bus.read(addr, True)
                 addr += 1
                 sInst += "#$" + hex(value, 2) + " {IMM}"
                 
-            elif self.lookup[self.opcode].addrmode == self.ZP0:
+            elif self.lookup[opcode].addrmode == self.ZP0:
                 lo = self.bus.read(addr, True)
                 addr += 1
                 hi = 0x00
                 sInst += "$" + hex(lo, 2) + " {ZP0}";
                 
-            elif self.lookup[self.opcode].addrmode == self.ZPX:
+            elif self.lookup[opcode].addrmode == self.ZPX:
                 lo = self.bus.read(addr, True)
                 addr += 1
                 hi = 0x00
                 sInst += "$" + hex(lo, 2) + ", X {ZPX}";
                 
-            elif self.lookup[self.opcode].addrmode == self.ZPY:
+            elif self.lookup[opcode].addrmode == self.ZPY:
                 lo = self.bus.read(addr, True)
                 addr += 1
                 hi = 0x00
                 sInst += "$" + hex(lo, 2) + ", Y {ZPY}";
                 
-            elif self.lookup[self.opcode].addrmode == self.IZX:
+            elif self.lookup[opcode].addrmode == self.IZX:
                 lo = self.bus.read(addr, True)
                 addr += 1
                 hi = 0x00
                 sInst += "($" + hex(lo, 2) + ", X) {IZX}";
                 
-            elif self.lookup[self.opcode].addrmode == self.IZY:
+            elif self.lookup[opcode].addrmode == self.IZY:
                 lo = self.bus.read(addr, True)
                 addr += 1
                 hi = 0x00
                 sInst += "($" + hex(lo, 2) + ", Y) {IZY}";
                 
-            elif self.lookup[self.opcode].addrmode == self.ABS:
+            elif self.lookup[opcode].addrmode == self.ABS:
                 lo = self.bus.read(addr, True)
                 addr += 1
                 hi = self.bus.read(addr, True)
                 addr += 1
-                sInst += "$" + hex((uint16_t)(hi << 8) | lo, 4) + " {ABS}";
+                sInst += "$" + hex((hi << 8) | lo, 4) + " {ABS}"
                 
-            elif self.lookup[self.opcode].addrmode == self.ABX:
+            elif self.lookup[opcode].addrmode == self.ABX:
                 lo = self.bus.read(addr, True)
                 addr += 1
                 hi = self.bus.read(addr, True)
                 addr += 1
-                sInst += "$" + hex((uint16_t)(hi << 8) | lo, 4) + ", X {ABX}";
+                sInst += "$" + hex((hi << 8) | lo, 4) + ", X {ABX}"
                 
-            elif self.lookup[self.opcode].addrmode == self.ABY:
+            elif self.lookup[opcode].addrmode == self.ABY:
                 lo = self.bus.read(addr, True)
                 addr += 1
                 hi = self.bus.read(addr, True)
                 addr += 1
-                sInst += "$" + hex((uint16_t)(hi << 8) | lo, 4) + ", Y {ABY}";
+                sInst += "$" + hex((hi << 8) | lo, 4) + ", Y {ABY}"
                 
-            elif self.lookup[self.opcode].addrmode == self.IND:
+            elif self.lookup[opcode].addrmode == self.IND:
                 lo = self.bus.read(addr, True)
                 addr += 1
                 hi = self.bus.read(addr, True)
                 addr += 1
-                sInst += "($" + hex((uint16_t)(hi << 8) | lo, 4) + ") {IND}";
+                sInst += "($" + hex((hi << 8) | lo, 4) + ") {IND}"
                 
-            elif self.lookup[self.opcode].addrmode == self.REL:
+            elif self.lookup[opcode].addrmode == self.REL:
                 value = self.bus.read(addr, True)
                 addr += 1
                 sInst += "$" + hex(value, 2) + " [$" + hex(addr + value, 4) + "] {REL}";
@@ -255,10 +256,10 @@ class olc6502:
 
         return mapLines
 
+    ''''''
     #######################
     #  ADDRESSING MODES  #
     #######################
-    #region AddressingModes
     
     def IMP(self):
         self.fetched = self.a
@@ -345,9 +346,9 @@ class olc6502:
         ptr = (ptr_hi << 8) | ptr_lo
 
         if ptr_lo  == 0x00FF:
-            self.addr_abs = (read(ptr & 0xFF00) << 8) | read(ptr + 0);
+            self.addr_abs = (self.read(ptr & 0xFF00) << 8) | self.read(ptr + 0);
         else:
-            self.addr_abs = (read(ptr + 1) << 8) | read(ptr + 0);
+            self.addr_abs = (self.read(ptr + 1) << 8) | self.read(ptr + 0);
 
         return 0
         
@@ -375,8 +376,7 @@ class olc6502:
 
         return 0
         
-    #endregion
-    
+    ''''''
     ##############
     #  OP CODES  #
     ##############
@@ -391,7 +391,7 @@ class olc6502:
         self.setFlag(V, (~(self.a ^ self.fetched) & (self.a ^ self.temp)) & 0x0080)
         self.setFlag(N, self.temp & 0x80)
 
-        a = self.temp & 0x00FF
+        self.a = self.temp & 0x00FF
 
         return 1
         
@@ -593,7 +593,7 @@ class olc6502:
     def DEC(self):
         self.fetch()
         self.temp = self.fetched - 1
-        self.write(self.addr_abs, temp & 0x00FF)
+        self.write(self.addr_abs, self.temp & 0x00FF)
         
         self.setFlag(Z, (self.temp & 0x00FF) == 0x0000)
         self.setFlag(N, self.temp & 0x0080)
@@ -628,7 +628,7 @@ class olc6502:
     def INC(self):
         self.fetch()
         self.temp = self.fetched + 1
-        self.write(self.addr_abs, temp & 0x00FF)
+        self.write(self.addr_abs, self.temp & 0x00FF)
         
         self.setFlag(Z, (self.temp & 0x00FF) == 0x0000)
         self.setFlag(N, self.temp & 0x0080)
@@ -697,7 +697,7 @@ class olc6502:
         self.fetch()
         
         self.setFlag(C, self.fetched & 0x0001)
-        self.temp = fetched >> 1
+        self.temp = self.fetched >> 1
         self.setFlag(Z, (self.temp & 0x00FF) == 0x0000)
         self.setFlag(N, self.temp & 0x0080)
 
@@ -824,7 +824,7 @@ class olc6502:
     def SBC(self):
         self.fetch()
 
-        value = fetched ^ 0x00FF
+        value = self.fetched ^ 0x00FF
 
         self.temp = self.a + value + self.getFlag(C)
         
@@ -833,7 +833,7 @@ class olc6502:
         self.setFlag(V, (self.temp ^ self.a) & (self.temp ^ value) & 0x0080)
         self.setFlag(N, self.temp & 0x80)
 
-        a = self.temp & 0x00FF
+        self.a = self.temp & 0x00FF
 
         return 1
         

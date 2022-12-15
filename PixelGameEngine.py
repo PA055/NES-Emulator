@@ -32,8 +32,8 @@ class Color:
     BLACK = (0, 0, 0)
     BLANK = (0, 0, 0, 0)
 
-    def fromHex(hex: "#RRGGBBAA"):
-        return (0, 0, 0, 0)
+    def fromHex(hex: "RRGGBB(AA)"):
+        pass
         
     
 class Sprite:
@@ -97,6 +97,7 @@ class PixelEngine:
         self.__keydown = False
         self.__isRunning = False
         self.__gamma = gamma
+        self.events = {}
         
         self.FPS = FPS
         self.clock = pygame.time.Clock()
@@ -122,7 +123,8 @@ class PixelEngine:
     
     def loop(self, update, end):
         while self.__isRunning:
-            for event in pygame.event.get():
+            self.events = pygame.event.get()
+            for event in self.events:
                 if event.type == QUIT:
                     end(self)
                     pygame.quit()
@@ -151,6 +153,12 @@ class PixelEngine:
     
     def getKeyPressed(self):
         return pygame.key.get_pressed()
+
+    def getKeyDown(self):
+        for event in self.events:
+            if event.type == KEYDOWN:
+                return event.key
+        return None
 
     def clearScreen(self):
         for x in range(self.WPW):
@@ -504,7 +512,7 @@ class PixelEngine:
                     self.setThickPixelXY(x, round(ys), color, thickness)
 
     def drawString(self, string: str, point: Iterable[int], color: Iterable[int], scale: float=1):
-        text = Sprite('PixelGameEngine/src/PixelGameEngine_Myself0/Font.png')
+        text = Sprite('Font.png')
         if color != (0, 0, 0, 255):
             text.replaceColor((0, 0, 0, 255), color)
         letterOffset = 0
