@@ -19,6 +19,8 @@ U = 5
 V = 6
 N = 7
 
+# TODO: Overflow detect all sets !IMPORTANT!
+
 class olc6502:    
     def __init__(self):
         self.bus = None
@@ -81,7 +83,6 @@ class olc6502:
         else:
             self.status &= ~(1 << flagNo)
 
-    
     def reset(self):
         self.addr_abs = 0xFFFC
         lo = self.read(self.addr_abs + 0)
@@ -193,31 +194,31 @@ class olc6502:
                 lo = self.bus.read(addr, True)
                 addr += 1
                 hi = 0x00
-                sInst += "$" + hex(lo, 2) + " {ZP0}";
+                sInst += "$" + hex(lo, 2) + " {ZP0}"
                 
             elif self.lookup[opcode].addrmode == self.ZPX:
                 lo = self.bus.read(addr, True)
                 addr += 1
                 hi = 0x00
-                sInst += "$" + hex(lo, 2) + ", X {ZPX}";
+                sInst += "$" + hex(lo, 2) + ", X {ZPX}"
                 
             elif self.lookup[opcode].addrmode == self.ZPY:
                 lo = self.bus.read(addr, True)
                 addr += 1
                 hi = 0x00
-                sInst += "$" + hex(lo, 2) + ", Y {ZPY}";
+                sInst += "$" + hex(lo, 2) + ", Y {ZPY}"
                 
             elif self.lookup[opcode].addrmode == self.IZX:
                 lo = self.bus.read(addr, True)
                 addr += 1
                 hi = 0x00
-                sInst += "($" + hex(lo, 2) + ", X) {IZX}";
+                sInst += "($" + hex(lo, 2) + ", X) {IZX}"
                 
             elif self.lookup[opcode].addrmode == self.IZY:
                 lo = self.bus.read(addr, True)
                 addr += 1
                 hi = 0x00
-                sInst += "($" + hex(lo, 2) + ", Y) {IZY}";
+                sInst += "($" + hex(lo, 2) + ", Y) {IZY}"
                 
             elif self.lookup[opcode].addrmode == self.ABS:
                 lo = self.bus.read(addr, True)
@@ -250,7 +251,7 @@ class olc6502:
             elif self.lookup[opcode].addrmode == self.REL:
                 value = self.bus.read(addr, True)
                 addr += 1
-                sInst += "$" + hex(value, 2) + " [$" + hex(addr + value, 4) + "] {REL}";
+                sInst += "$" + hex(value, 2) + " [$" + hex(addr + value, 4) + "] {REL}"
 
             mapLines[line_addr] = sInst
 
@@ -313,8 +314,8 @@ class olc6502:
         return 0
         
     def IMM(self):
+        self.addr_abs = self.pc
         self.pc += 1
-        self.addr_abs = self.pc;
         return 0
         
     def ZPX(self):
@@ -346,9 +347,9 @@ class olc6502:
         ptr = (ptr_hi << 8) | ptr_lo
 
         if ptr_lo  == 0x00FF:
-            self.addr_abs = (self.read(ptr & 0xFF00) << 8) | self.read(ptr + 0);
+            self.addr_abs = (self.read(ptr & 0xFF00) << 8) | self.read(ptr + 0)
         else:
-            self.addr_abs = (self.read(ptr + 1) << 8) | self.read(ptr + 0);
+            self.addr_abs = (self.read(ptr + 1) << 8) | self.read(ptr + 0)
 
         return 0
         
@@ -416,7 +417,7 @@ class olc6502:
         if self.lookup[self.opcode].addrmode == self.IMP:
             self.a = self.temp & 0x00FF
         else:
-            self.write(self.addr_abs, self.temp & 0x00FF);
+            self.write(self.addr_abs, self.temp & 0x00FF)
 
         return 0
         
@@ -486,7 +487,7 @@ class olc6502:
             if (self.addr_abs & 0xFF00) != (self.pc & 0xFF00):
                 self.cycles += 1
 
-            self.pc = self.addr_abs
+            self.pc = self.addr_abs & 0xFFFF
 
         return 0
         
@@ -505,16 +506,16 @@ class olc6502:
     def BRK(self):
         self.pc += 1
 	    
-        self.SetFlag(I, 1)
+        self.setFlag(I, 1)
         self.write(0x0100 + self.stkp, (self.pc >> 8) & 0x00FF)
         self.stkp -= 1
         self.write(0x0100 + self.stkp, self.pc & 0x00FF)
         self.stkp -= 1
     
-        self.SetFlag(B, 1)
+        self.setFlag(B, 1)
         self.write(0x0100 + self.stkp, self.status)
         self.stkp -= 1
-        self.SetFlag(B, 0)
+        self.setFlag(B, 0)
     
         self.pc = self.read(0xFFFE) | (self.read(0xFFFF) << 8)
         
@@ -682,7 +683,7 @@ class olc6502:
         self.setFlag(Z, self.x == 0x00)
         self.setFlag(N, self.x & 0x80)
         
-        return 0
+        return 1
         
     def LDY(self):
         self.fetch()
@@ -691,7 +692,7 @@ class olc6502:
         self.setFlag(Z, self.y == 0x00)
         self.setFlag(N, self.y & 0x80)
         
-        return 0
+        return 1
         
     def LSR(self):
         self.fetch()
@@ -726,7 +727,6 @@ class olc6502:
             pass
 
         return 0
-        
         
     def ORA(self):
         self.fetch()
