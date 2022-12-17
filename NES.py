@@ -2,7 +2,11 @@ from pygame.locals import *
 from PixelGameEngine import *
 import olc6502Class
 from BusClass import Bus
+from CartridgeClass import Cartridge
 from collections import OrderedDict
+
+
+cart = Cartridge('lj65.nes')
 
 cpu = olc6502Class.olc6502()
 nes = Bus(cpu)

@@ -1,14 +1,46 @@
 class Bus:
-    def __init__(self, cpu):
+    def __init__(self, cpu, ppu):
         self.cpu = cpu
-        self.ram = [0 for i in range(64*1024)]
+        self.ppu = ppu
+        self.cpuRam = [0 for i in range(2*1024)]
+        self.cart = None
         self.cpu.connectBus(self)
+
+        self.nSystemClockCounter = 0
         
-    def write(self, addr, data):
-        if (addr >= 0x0000 and addr <= 0xFFFF):
-            self.ram[addr] = data
+    def cpuWrite(self, addr, data):
+        data, toMapper = self.cart.cpuWrite(addr, data)
+        if toMapper:
+            pass
+
+        elif (addr >= 0x0000 and addr <= 0x1FFF):
+            self.cpuRam[addr & 0x07FF] = data
+
+        elif (addr >= 0x2000 and addr <= 0x3FFF):
+            self.ppu.cpuWrite(addr & 0x0007, data)
         
-    def read(self, addr, bReadOnly=False):
-        if (addr >= 0x0000 and addr <= 0xFFFF):
-            return self.ram[addr]
-        return 0x00
+    def cpuRead(self, addr, bReadOnly=False):
+        data = 0x00
+        
+        data, toMapper = self.cart.cpuWrite(addr, data)
+        if toMapper:
+            pass
+
+        elif (addr >= 0x0000 and addr <= 0x1FFF):
+            data = self.cpuRam[addr & 0x07FF]
+
+        elif (addr >= 0x2000 and addr <= 0x3FFF):
+            data = self.ppu.cpuRead(addr & 0x0007, bReadOnly)
+
+        return data
+
+    def insertCartridge(self, cartridge):
+        self.cart = cartridge
+        self.ppu.connectCartridge(cartridge)
+
+    def reset(self):
+        self.cpu.reset()
+        self.nSystemClockCounter = 0
+
+    def clock(self):
+        pass

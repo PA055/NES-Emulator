@@ -67,11 +67,11 @@ class olc6502:
         return self.bus.read(a, False)
 
     def write(self, a, d):
-        self.bus.write(a, d)
+        self.bus.cpuWrite(a, d)
 
     def fetch(self):
         if self.lookup[self.opcode].addrmode != self.IMP:
-            self.fetched = self.read(self.addr_abs)
+            self.fetched = self.cpuRead(self.addr_abs)
         return self.fetched
 
     def getFlag(self, flagNo: int):
