@@ -1,0 +1,4 @@
+
+
+class Cartridge:
+    pass
