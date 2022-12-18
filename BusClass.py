@@ -7,6 +7,7 @@ class Bus:
         self.cpu.connectBus(self)
 
         self.nSystemClockCounter = 0
+        self.nInstructionCounter = 0
         
     def cpuWrite(self, addr, data):
         toMapper = self.cart.cpuWrite(addr, data)
@@ -47,5 +48,8 @@ class Bus:
 
         if self.nSystemClockCounter % 3 == 0:
             self.cpu.clock()
+            if self.cpu.complete():
+                self.nInstructionCounter += 1
+                print('Instruction Number', self.nInstructionCounter)
 
         self.nSystemClockCounter += 1

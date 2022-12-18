@@ -125,6 +125,8 @@ def Start(game):
 
     mapAsm = nes.cpu.disassemble(0x0000, 0xFFFF)
 
+    toFile('DissasembledSMB.txt', [instr for addr, instr in mapAsm.items() if addr >= 0x8000])
+
     nes.cpu.reset()
     return True
 
@@ -145,10 +147,8 @@ def Update(game):
     else:
         if (key == K_c):
             nes.clock()
-            noCycles = 1
             while not nes.cpu.complete():
                 nes.clock()
-                noCycles += 1
         
         if (key == K_f):
             nes.clock()
