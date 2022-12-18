@@ -1,15 +1,19 @@
 from pygame.locals import *
 from PixelGameEngine import *
 import olc6502Class
+import olc2C02Class
 from BusClass import Bus
 from CartridgeClass import Cartridge
 from collections import OrderedDict
 
 
-cart = Cartridge('lj65.nes')
-
+cart = None
+ppu = olc2C02Class.olc2C02()
 cpu = olc6502Class.olc6502()
-nes = Bus(cpu)
+nes = Bus(cpu, ppu)
+
+bEmulationRun = False
+fResidualTime = 0.0
 
 mapAsm = OrderedDict()
 
@@ -36,7 +40,7 @@ def DrawRam(game, x, y, nAddr, nRows, nColumns):
     for row in range(nRows):
         sOffset = '$' + hex(nAddr, 4) + ':'
         for col in range(nColumns):
-            sOffset += ' ' + hex(nes.read(nAddr, True), 2)
+            sOffset += ' ' + hex(nes.cpuRead(nAddr, True), 2)
             nAddr += 1
 
         game.drawString(sOffset, (nRamX, nRamY), Color.WHITE)
@@ -45,14 +49,14 @@ def DrawRam(game, x, y, nAddr, nRows, nColumns):
 
 def DrawCPU(game, x, y):
     game.drawString('STATUS:', (x, y), Color.WHITE)
-    game.drawString('N', (x + 70, y), Color.GREEN if (nes.cpu.status & (1 << olc6502Class.N)) else Color.RED)
-    game.drawString('V', (x + 82, y), Color.GREEN if (nes.cpu.status & (1 << olc6502Class.V)) else Color.RED)
-    game.drawString('-', (x + 100, y), Color.GREEN if (nes.cpu.status & (1 << olc6502Class.U)) else Color.RED)
-    game.drawString('B', (x + 114, y), Color.GREEN if (nes.cpu.status & (1 << olc6502Class.B)) else Color.RED)
-    game.drawString('D', (x + 132, y), Color.GREEN if (nes.cpu.status & (1 << olc6502Class.D)) else Color.RED)
-    game.drawString('I', (x + 148, y), Color.GREEN if (nes.cpu.status & (1 << olc6502Class.I)) else Color.RED)
-    game.drawString('Z', (x + 164, y), Color.GREEN if (nes.cpu.status & (1 << olc6502Class.Z)) else Color.RED)
-    game.drawString('C', (x + 182, y), Color.GREEN if (nes.cpu.status & (1 << olc6502Class.C)) else Color.RED)
+    game.drawString('N', (x + 74, y), Color.GREEN if (nes.cpu.status & (1 << olc6502Class.N)) else Color.RED)
+    game.drawString('V', (x + 88, y), Color.GREEN if (nes.cpu.status & (1 << olc6502Class.V)) else Color.RED)
+    game.drawString('-', (x + 106, y), Color.GREEN if (nes.cpu.status & (1 << olc6502Class.U)) else Color.RED)
+    game.drawString('B', (x + 120, y), Color.GREEN if (nes.cpu.status & (1 << olc6502Class.B)) else Color.RED)
+    game.drawString('D', (x + 138, y), Color.GREEN if (nes.cpu.status & (1 << olc6502Class.D)) else Color.RED)
+    game.drawString('I', (x + 154, y), Color.GREEN if (nes.cpu.status & (1 << olc6502Class.I)) else Color.RED)
+    game.drawString('Z', (x + 170, y), Color.GREEN if (nes.cpu.status & (1 << olc6502Class.Z)) else Color.RED)
+    game.drawString('C', (x + 188, y), Color.GREEN if (nes.cpu.status & (1 << olc6502Class.C)) else Color.RED)
     game.drawString('PC: $' + hex(nes.cpu.pc, 4), (x, y + 12), Color.WHITE)
     game.drawString('A: $' + hex(nes.cpu.a, 2) + "  [" + str(nes.cpu.a) + ']', (x, y + 24), Color.WHITE)
     game.drawString('X: $' + hex(nes.cpu.x, 2) + "  [" + str(nes.cpu.x) + ']', (x, y + 36), Color.WHITE)
@@ -103,15 +107,21 @@ def Start(game):
 			NOP
     '''
     
-    ss = list("A2 0A 8E 00 00 A2 03 8E 01 00 AC 00 00 A9 00 18 6D 01 00 88 D0 FA 8D 02 00 EA EA EA".split())
-    nOffset = 0x8000
-    while len(ss) > 0:
-        b = ss.pop(0)
-        nes.ram[nOffset] = int(b, 16)
-        nOffset += 1
+    #ss = list("A2 0A 8E 00 00 A2 03 8E 01 00 AC 00 00 A9 00 18 6D 01 00 88 D0 FA 8D 02 00 EA EA EA".split())
+    #nOffset = 0x8000
+    #while len(ss) > 0:
+    #    b = ss.pop(0)
+    #    nes.ram[nOffset] = int(b, 16)
+    #    nOffset += 1
 
-    nes.ram[0xFFFC] = 0x00
-    nes.ram[0xFFFD] = 0x80
+    #nes.ram[0xFFFC] = 0x00
+    #nes.ram[0xFFFD] = 0x80
+
+    cart = Cartridge('lj65.nes')
+    if not cart.imageValid():
+        return False
+
+    nes.insertCartridge(cart)
 
     mapAsm = nes.cpu.disassemble(0x0000, 0xFFFF)
 
@@ -119,37 +129,54 @@ def Start(game):
     return True
 
 def Update(game):
+    global bEmulationRun, fResidualTime
     game.clearScreen()
-    
     key = game.getKeyDown()
+    
+    if bEmulationRun:
+        if fResidualTime > 0:
+            fResidualTime -= game.getElapsedTime()
+        else:
+            fResidualTime += (1 / 60) - game.getElapsedTime()
+            nes.clock()
+            while not nes.ppu.frame_complete:
+                nes.clock()
+            nes.ppu.frame_complete = False
+    else:
+        if (key == K_c):
+            nes.clock()
+            while not nes.cpu.complete():
+                nes.clock()
+        
+        if (key == K_f):
+            nes.clock()
+            while not nes.ppu.frame_complete:
+                nes.clock()
+            
+            nes.clock()
+            while not nes.cpu.complete():
+                nes.clock()
 
+            nes.ppu.frame_complete = False
+    
+    
     if (key == K_SPACE):
-        nes.cpu.clock()
-        while not nes.cpu.complete():
-            nes.cpu.clock()
+        bEmulationRun = not bEmulationRun
 
     if key == K_r:
-        nes.cpu.reset()
-
-    if key == K_i:
-        nes.cpu.irq()
-
-    if key == K_n:
-        nes.cpu.nmi()
+        nes.reset()
     
 
-    DrawRam(game, 2, 2, 0x0000, 16, 16)
-    DrawRam(game, 2, 200, 0x8000, 16, 16)
     
-    DrawCode(game, 454, 80, 26)
-    DrawCPU(game, 454, 2)
+    DrawCode(game, 520, 80, 26)
+    DrawCPU(game, 520, 2)
 
-    game.drawString("SPACE = Step Instruction    R = RESET    I = IRQ    N = NMI", (100, 430), Color.WHITE)
+    game.drawSprite(nes.ppu.getScreen(), (0, 0), scale=2)
 
     return True
 
     
-gameEngine = PixelEngine('NES Demo', 450, 700, 1, 1)
+gameEngine = PixelEngine('NES Demo', 450, 800, 1, 1)
 gameEngine.setBackground(Color.DARK_BLUE)
 keys = gameEngine.getKeyDown()
 

@@ -37,13 +37,38 @@ class Color:
         
     
 class Sprite:
-    def __init__(self, imagePath):
-        self.imagePath = imagePath
-        self.image = Image.open(imagePath)
-        self.height = self.image.size[1]
-        self.width = self.image.size[0]
-        self.loadedImage = self.image.load()
-        self.generateArray()
+    def __init__(self, imagePath_or_width_or_size, height=None):
+        try:
+            iter(imagePath_or_width_or_size)
+        except TypeError:
+            if (height is not None) and (type(imagePath_or_width_or_size) == type(int(1))):
+                self.imageArray = [[(0, 0, 0, 255) for y in range(height)] for x in range(imagePath_or_width_or_size)]
+                self.image = Image.fromarray(np.asarray(self.imageArray, dtype=np.uint8))
+                self.loadedImage = self.image.load()
+                self.width = imagePath_or_width_or_size
+                self.height = height
+        else:
+            if type(imagePath_or_width_or_size) == type('String'):
+                self.imagePath = imagePath_or_width_or_size
+                self.image = Image.open(imagePath_or_width_or_size)
+                self.height = self.image.size[1]
+                self.width = self.image.size[0]
+                self.loadedImage = self.image.load()
+                self.generateArray()
+            else:
+                self.width = imagePath_or_width_or_size[0]
+                self.height = imagePath_or_width_or_size[1]
+                self.imageArray = [[(0, 0, 0, 255) for y in range(self.height)] for x in range(self.width)]
+                self.image = Image.fromarray(np.asarray(self.imageArray, dtype=np.uint8))
+                self.loadedImage = self.image.load()
+            
+    def setPixel(self, pos, color, bUpdateImage=False):
+        try:
+            self.imageArray[pos[0]][pos[1]] = color
+        except IndexError:
+            return False
+        else:
+            return True
 
     def generateArray(self):
         data = []
@@ -66,8 +91,15 @@ class Sprite:
 
     def resizeImage(self, scale: float):
         pass
-            
-        
+
+    def __iter__():
+        pass
+
+    def __getitem__(self, i, y=None):
+        if y is not None:
+            return self.imageArray[i][y]
+        else:
+            return self.imageArray[i % self.width][i // self.width]    
 
 
 class PixelEngine:
@@ -139,8 +171,15 @@ class PixelEngine:
 
             self.drawScreen(self.pixels)
             pygame.display.update()
+            
             if self.FPS is not None:
                 self.clock.tick(self.FPS)
+
+    def getElapsedTime(self):
+        return self.clock.get_time()
+
+    def getFPS(self):
+        return self.clock.get_fps()
 
     def isInRange(self, point: Iterable[int]):
         return (point[0] < self.WPW and point[0] >= 0) and (point[1] < self.WPH and point[1] >= 0) 

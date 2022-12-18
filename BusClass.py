@@ -9,7 +9,7 @@ class Bus:
         self.nSystemClockCounter = 0
         
     def cpuWrite(self, addr, data):
-        data, toMapper = self.cart.cpuWrite(addr, data)
+        toMapper = self.cart.cpuWrite(addr, data)
         if toMapper:
             pass
 
@@ -22,7 +22,7 @@ class Bus:
     def cpuRead(self, addr, bReadOnly=False):
         data = 0x00
         
-        data, toMapper = self.cart.cpuWrite(addr, data)
+        data, toMapper = self.cart.cpuRead(addr, data)
         if toMapper:
             pass
 
@@ -43,4 +43,9 @@ class Bus:
         self.nSystemClockCounter = 0
 
     def clock(self):
-        pass
+        self.ppu.clock()
+
+        if self.nSystemClockCounter % 3 == 0:
+            self.cpu.clock()
+
+        self.nSystemClockCounter += 1

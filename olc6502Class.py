@@ -64,14 +64,14 @@ class olc6502:
         self.bus = bus
 
     def read(self, a):
-        return self.bus.read(a, False)
+        return self.bus.cpuRead(a, False)
 
     def write(self, a, d):
         self.bus.cpuWrite(a, d)
 
     def fetch(self):
         if self.lookup[self.opcode].addrmode != self.IMP:
-            self.fetched = self.cpuRead(self.addr_abs)
+            self.fetched = self.read(self.addr_abs)
         return self.fetched
 
     def getFlag(self, flagNo: int):
@@ -178,7 +178,7 @@ class olc6502:
         while addr <= nStop:
             line_addr = addr
             sInst = "$" + hex(addr, 4) + ': '
-            opcode = self.bus.read(addr, True)
+            opcode = self.bus.cpuRead(addr, True)
             addr += 1
             sInst += self.lookup[opcode].name + ' '
 
@@ -186,70 +186,70 @@ class olc6502:
                 sInst += ' {IMP}'
                 
             elif self.lookup[opcode].addrmode == self.IMM:
-                value = self.bus.read(addr, True)
+                value = self.bus.cpuRead(addr, True)
                 addr += 1
                 sInst += "#$" + hex(value, 2) + " {IMM}"
                 
             elif self.lookup[opcode].addrmode == self.ZP0:
-                lo = self.bus.read(addr, True)
+                lo = self.bus.cpuRead(addr, True)
                 addr += 1
                 hi = 0x00
                 sInst += "$" + hex(lo, 2) + " {ZP0}"
                 
             elif self.lookup[opcode].addrmode == self.ZPX:
-                lo = self.bus.read(addr, True)
+                lo = self.bus.cpuRead(addr, True)
                 addr += 1
                 hi = 0x00
                 sInst += "$" + hex(lo, 2) + ", X {ZPX}"
                 
             elif self.lookup[opcode].addrmode == self.ZPY:
-                lo = self.bus.read(addr, True)
+                lo = self.bus.cpuRead(addr, True)
                 addr += 1
                 hi = 0x00
                 sInst += "$" + hex(lo, 2) + ", Y {ZPY}"
                 
             elif self.lookup[opcode].addrmode == self.IZX:
-                lo = self.bus.read(addr, True)
+                lo = self.bus.cpuRead(addr, True)
                 addr += 1
                 hi = 0x00
                 sInst += "($" + hex(lo, 2) + ", X) {IZX}"
                 
             elif self.lookup[opcode].addrmode == self.IZY:
-                lo = self.bus.read(addr, True)
+                lo = self.bus.cpuRead(addr, True)
                 addr += 1
                 hi = 0x00
                 sInst += "($" + hex(lo, 2) + ", Y) {IZY}"
                 
             elif self.lookup[opcode].addrmode == self.ABS:
-                lo = self.bus.read(addr, True)
+                lo = self.bus.cpuRead(addr, True)
                 addr += 1
-                hi = self.bus.read(addr, True)
+                hi = self.bus.cpuRead(addr, True)
                 addr += 1
                 sInst += "$" + hex((hi << 8) | lo, 4) + " {ABS}"
                 
             elif self.lookup[opcode].addrmode == self.ABX:
-                lo = self.bus.read(addr, True)
+                lo = self.bus.cpuRead(addr, True)
                 addr += 1
-                hi = self.bus.read(addr, True)
+                hi = self.bus.cpuRead(addr, True)
                 addr += 1
                 sInst += "$" + hex((hi << 8) | lo, 4) + ", X {ABX}"
                 
             elif self.lookup[opcode].addrmode == self.ABY:
-                lo = self.bus.read(addr, True)
+                lo = self.bus.cpuRead(addr, True)
                 addr += 1
-                hi = self.bus.read(addr, True)
+                hi = self.bus.cpuRead(addr, True)
                 addr += 1
                 sInst += "$" + hex((hi << 8) | lo, 4) + ", Y {ABY}"
                 
             elif self.lookup[opcode].addrmode == self.IND:
-                lo = self.bus.read(addr, True)
+                lo = self.bus.cpuRead(addr, True)
                 addr += 1
-                hi = self.bus.read(addr, True)
+                hi = self.bus.cpuRead(addr, True)
                 addr += 1
                 sInst += "($" + hex((hi << 8) | lo, 4) + ") {IND}"
                 
             elif self.lookup[opcode].addrmode == self.REL:
-                value = self.bus.read(addr, True)
+                value = self.bus.cpuRead(addr, True)
                 addr += 1
                 sInst += "$" + hex(value, 2) + " [$" + hex(addr + value, 4) + "] {REL}"
 

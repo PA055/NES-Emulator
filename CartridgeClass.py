@@ -1,4 +1,6 @@
 from dataclasses import dataclass
+from Mapper_000Class import Mapper_000
+
 
 @dataclass
 class sHeader:
@@ -31,6 +33,8 @@ class Cartridge:
         self.nCHRBanks = 0
 
         self.header = sHeader('    ', 0, 0, 0, 0, 0, 0, 0, '     ')
+
+        self.bImageValid = False
 
         with open(filename, 'rb') as ifs:
             # read header
@@ -78,16 +82,45 @@ class Cartridge:
             elif nFileType == 2:
                 pass
 
+            if self.nMapperID == 0:
+                self.pMapper = Mapper_000(self.nPRGBanks, self.nCHRBanks)
+            elif self.nMapperID == 1:
+                self.pMapper = None
 
+            self.bImageValid = True
+
+
+    def imageValid(self):
+        return self.bImageValid
 
     def cpuRead(self, addr, data):
-        return data, False
+        mapped_addr, mapperMod = self.pMapper.cpuMapRead(addr, 0)
+        if mapperMod:
+            data = self.vPRGMemory[mapped_addr]
+            return data, True
+        else:
+            return data, False
 
     def cpuWrite(self, addr, data):
-        return False
+        mapped_addr, mapperMod = self.pMapper.cpuMapWrite(addr, 0)
+        if mapperMod:
+            self.vPRGMemory[mapped_addr] = data
+            return True
+        else:
+            return False
 
     def ppuRead(self, addr, data):
-        return data, False
+        mapped_addr, mapperMod = self.pMapper.ppuMapRead(addr, 0)
+        if mapperMod:
+            data = self.vCHRMemory[mapped_addr]
+            return data, True
+        else:
+            return data, False
 
     def ppuWrite(self, addr, data):
-        return False
+        mapped_addr, mapperMod = self.pMapper.ppuMapWrite(addr, 0)
+        if mapperMod:
+            self.vCHRMemory[mapped_addr] = data
+            return True
+        else:
+            return False
