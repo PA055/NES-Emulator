@@ -142,6 +142,7 @@ class olc6502:
         self.cycles = 8
         
     def clock(self):
+        print('cpu clock', self.cycles)
         if self.cycles == 0:
             self.opcode = self.read(self.pc)
             self.setFlag(U, True)
@@ -155,7 +156,10 @@ class olc6502:
 
             self.cycles += (additional_cycle_1 & additional_cycle_2)
 
+            print(self.cycles)
+
             self.setFlag(U, True)
+            
 
         self.cycles -= 1
 

@@ -117,7 +117,7 @@ def Start(game):
     #nes.ram[0xFFFC] = 0x00
     #nes.ram[0xFFFD] = 0x80
 
-    cart = Cartridge('lj65.nes')
+    cart = Cartridge('ROMs/Super Mario Bros.nes')
     if not cart.imageValid():
         return False
 
@@ -145,8 +145,10 @@ def Update(game):
     else:
         if (key == K_c):
             nes.clock()
+            noCycles = 1
             while not nes.cpu.complete():
                 nes.clock()
+                noCycles += 1
         
         if (key == K_f):
             nes.clock()
@@ -176,7 +178,7 @@ def Update(game):
     return True
 
     
-gameEngine = PixelEngine('NES Demo', 450, 800, 1, 1)
+gameEngine = PixelEngine('NES Demo', 480, 780, 1, 1)
 gameEngine.setBackground(Color.DARK_BLUE)
 keys = gameEngine.getKeyDown()
 

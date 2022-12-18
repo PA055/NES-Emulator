@@ -37,27 +37,34 @@ class Color:
         
     
 class Sprite:
-    def __init__(self, imagePath_or_width_or_size, height=None):
+    def __init__(self, imagePath_or_width_or_size_or_pillow_image, height=None):
         try:
-            iter(imagePath_or_width_or_size)
+            iter(imagePath_or_width_or_size_or_pillow_image)
         except TypeError:
-            if (height is not None) and (type(imagePath_or_width_or_size) == type(int(1))):
-                self.imageArray = [[(0, 0, 0, 255) for y in range(height)] for x in range(imagePath_or_width_or_size)]
+            if (height is not None) and (type(imagePath_or_width_or_size_or_pillow_image) == type(int(1))):
+                self.imageArray = [[(0, 0, 0, 255) for y in range(height)] for x in range(imagePath_or_width_or_size_or_pillow_image)]
                 self.image = Image.fromarray(np.asarray(self.imageArray, dtype=np.uint8))
                 self.loadedImage = self.image.load()
-                self.width = imagePath_or_width_or_size
+                self.width = imagePath_or_width_or_size_or_pillow_image
                 self.height = height
+            elif type(imagePath_or_width_or_size_or_pillow_image) == Image.Image:
+                self.image = imagePath_or_width_or_size_or_pillow_image
+                self.height = self.image.size[1]
+                self.width = self.image.size[0]
+                self.loadedImage = self.image.load()
+                self.generateArray()
+        
         else:
-            if type(imagePath_or_width_or_size) == type('String'):
-                self.imagePath = imagePath_or_width_or_size
-                self.image = Image.open(imagePath_or_width_or_size)
+            if type(imagePath_or_width_or_size_or_pillow_image) == type('String'):
+                self.imagePath = imagePath_or_width_or_size_or_pillow_image
+                self.image = Image.open(imagePath_or_width_or_size_or_pillow_image)
                 self.height = self.image.size[1]
                 self.width = self.image.size[0]
                 self.loadedImage = self.image.load()
                 self.generateArray()
             else:
-                self.width = imagePath_or_width_or_size[0]
-                self.height = imagePath_or_width_or_size[1]
+                self.width = imagePath_or_width_or_size_or_pillow_image[0]
+                self.height = imagePath_or_width_or_size_or_pillow_image[1]
                 self.imageArray = [[(0, 0, 0, 255) for y in range(self.height)] for x in range(self.width)]
                 self.image = Image.fromarray(np.asarray(self.imageArray, dtype=np.uint8))
                 self.loadedImage = self.image.load()
@@ -90,7 +97,16 @@ class Sprite:
         self.generateArray()
 
     def resizeImage(self, scale: float):
-        pass
+        self.image = self.image.resize((self.width * scale, self.height * scale))
+        self.width = self.width * scale
+        self.height = self.height * scale
+        self.loadedImage = self.image.load()
+        self.generateArray()
+
+    def getResizedImage(self, scale):
+        image = self.image.resize((self.width * scale, self.height * scale))
+        return Sprite(image)
+
 
     def __iter__():
         pass
@@ -141,9 +157,9 @@ class PixelEngine:
                 py = math.floor(y / self.PIXEL_HEIGHT)
                 self.WINDOW.set_at((x, y), screen[px][py])
 
-    def Start(self, start: Callable=lambda x:1, update:Callable=lambda x:1, end:Callable=lambda x:1):
-        start(self)
-        self.__isRunning = True
+    def Start(self, start: Callable=lambda x:True, update:Callable=lambda x:True, end:Callable=lambda x:None):
+        
+        self.__isRunning = start(self)
         self.loop(update, end)
         end(self)
         pygame.quit()
@@ -567,7 +583,8 @@ class PixelEngine:
                     lineOffset += 12
                     letterOffset = 0
 
-    def drawSprite(self, sprite: Sprite, point: Iterable[int], scale: float=1):
+    def drawSprite(self, origSprite: Sprite, point: Iterable[int], scale: float=1):
+        sprite = origSprite.getResizedImage(scale)
         spriteArray = sprite.imageArray
         for y in range(sprite.height):
             for x in range(sprite.width):
