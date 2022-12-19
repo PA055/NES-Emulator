@@ -64,14 +64,14 @@ class olc6502:
         self.bus = bus
 
     def read(self, a):
-        return self.bus.cpuRead(a, False)
+        return self.bus.cpuRead(a, False) & 0xFF
 
     def write(self, a, d):
-        self.bus.cpuWrite(a, d)
+        self.bus.cpuWrite(a & 0xFFFF, d & 0xFF)
 
     def fetch(self):
         if self.lookup[self.opcode].addrmode != self.IMP:
-            self.fetched = self.read(self.addr_abs)
+            self.fetched = self.read(self.addr_abs) & 0xFF
         return self.fetched
 
     def getFlag(self, flagNo: int):
@@ -142,7 +142,6 @@ class olc6502:
         self.cycles = 8
         
     def clock(self):
-        print('cpu clock', self.cycles)
         if self.cycles == 0:
             self.opcode = self.read(self.pc)
             self.setFlag(U, True)
@@ -151,12 +150,26 @@ class olc6502:
             self.cycles = self.lookup[self.opcode].cycles
             
             additional_cycle_1 = (self.lookup[self.opcode].addrmode)()
+
+            self.a        &= 0xFF
+            self.x        &= 0xFF
+            self.y        &= 0xFF
+            self.stkp     &= 0xFF
+            self.pc       &= 0xFFFF
+            self.addr_abs &= 0xFFFF
+            self.addr_rel &= 0xFFFF
             
             additional_cycle_2 = (self.lookup[self.opcode].operate)()
 
             self.cycles += (additional_cycle_1 & additional_cycle_2)
 
-            print(self.cycles)
+            self.a        &= 0xFF
+            self.x        &= 0xFF
+            self.y        &= 0xFF
+            self.stkp     &= 0xFF
+            self.pc       &= 0xFFFF
+            self.addr_abs &= 0xFFFF
+            self.addr_rel &= 0xFFFF
 
             self.setFlag(U, True)
             
@@ -267,7 +280,7 @@ class olc6502:
     #######################
     
     def IMP(self):
-        self.fetched = self.a
+        self.fetched = self.a & 0xFF
         return 0
         
     def ZP0(self):

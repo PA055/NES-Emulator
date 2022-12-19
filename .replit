@@ -1,6 +1,6 @@
-run = ["python3", "main.py"]
+run = ["python3", "NES.py"]
 language = "python3"
-entrypoint = "main.py"
+entrypoint = "NES.py"
 hidden = ["venv", ".config", "**/__pycache__", "**/.mypy_cache", "**/*.pyc"]
 
 audio = true
@@ -31,7 +31,7 @@ support = true
 
   [debugger.interactive]
   transport = "localhost:0"
-  startCommand = ["dap-python", "main.py"]
+  startCommand = ["dap-python", "NES.py"]
 
     [debugger.interactive.integratedAdapter]
     dapTcpAddress = "localhost:0"
