@@ -75,7 +75,16 @@ class Sprite:
         except IndexError:
             return False
         else:
+            if bUpdateImage:
+                self.updateImage()
             return True
+
+    def updateImage(self):
+        self.image = Image.fromarray(np.asarray(self.imageArray, dtype=np.uint8))
+        self.loadedImage = self.image.load()
+        self.height = self.image.size[1]
+        self.width = self.image.size[0]
+
 
     def generateArray(self):
         data = []
@@ -97,19 +106,17 @@ class Sprite:
         self.generateArray()
 
     def resizeImage(self, scale: float):
-        self.image = self.image.resize((self.width * scale, self.height * scale))
+        self.updateImage()
+        self.image = self.image.resize((self.width * scale, self.height * scale), resample = Image.BICUBIC)
         self.width = self.width * scale
         self.height = self.height * scale
         self.loadedImage = self.image.load()
         self.generateArray()
 
     def getResizedImage(self, scale):
-        image = self.image.resize((self.width * scale, self.height * scale))
+        self.updateImage()
+        image = self.image.resize((self.width * scale, self.height * scale), resample = Image.BICUBIC)
         return Sprite(image)
-
-
-    def __iter__():
-        pass
 
     def __getitem__(self, i, y=None):
         if y is not None:
@@ -190,9 +197,11 @@ class PixelEngine:
             
             if self.FPS is not None:
                 self.clock.tick(self.FPS)
+            else:
+                self.clock.tick()
 
     def getElapsedTime(self):
-        return self.clock.get_time()
+        return self.clock.get_time() / 1000
 
     def getFPS(self):
         return self.clock.get_fps()
@@ -584,16 +593,23 @@ class PixelEngine:
                     letterOffset = 0
 
     def drawSprite(self, origSprite: Sprite, point: Iterable[int], scale: float=1):
-        sprite = origSprite.getResizedImage(scale)
+        if scale != 1:
+            sprite = origSprite.getResizedImage(scale)
+        else:
+            sprite = origSprite
         spriteArray = sprite.imageArray
         for y in range(sprite.height):
             for x in range(sprite.width):
                 self.setPixelXY(x + point[0], y + point[1], spriteArray[x][y])
     
-    def drawPartialSprite(self, sprite: Sprite, startingPoint: Iterable[int], ox: int, oy:int, w: int, h: int, scale: float=1):
+    def drawPartialSprite(self, origSprite: Sprite, startingPoint: Iterable[int], ox: int, oy:int, w: int, h: int, scale: float=1):
+        if scale != 1:
+            sprite = origSprite.getResizedImage(scale)
+        else:
+            sprite = origSprite
         spriteArray = sprite.imageArray
         for y in range(h):
             for x in range(w):
                 self.setPixelXY(x + startingPoint[0], y + startingPoint[1], spriteArray[x + ox][y + oy])
-    # TODO text, sprite, color class
+    
         

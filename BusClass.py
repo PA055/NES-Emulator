@@ -50,6 +50,7 @@ class Bus:
             self.cpu.clock()
             if self.cpu.complete():
                 self.nInstructionCounter += 1
-                print('Instruction Number', self.nInstructionCounter)
+                #print('CPU Instruction Counter:', self.nInstructionCounter)
 
         self.nSystemClockCounter += 1
+        #print("PPU Instruction Counter:", self.nSystemClockCounter)

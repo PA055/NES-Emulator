@@ -1,5 +1,122 @@
+from dataclasses import dataclass
 from PixelGameEngine import Sprite
 import random as rand
+
+def toFile(filename, data, type='list', mode = 'w+'):
+    with open(filename, mode) as f:
+        if type == 'list':
+            f.writelines(['\n' + str(datap) for datap in data])
+        elif type == 'dict':
+            f.writelines(['\n' + str(item) + ': ' + str(value) for item, value in data])
+        elif type == 'raw':
+            f.write(str(data))
+
+
+@dataclass
+class StatusReg:
+    unused: int = 0
+    sprite_overflow: bool = False
+    sprite_zero_hit: bool = False
+    vertical_blank: bool = False
+
+    def __init__(self):
+        self.reg = 0x00
+
+    @property
+    def reg(self):
+        reg = 0x00
+        reg |= ((self.unused & 0x10) << 0)
+        reg |= (int(self.sprite_overflow) << 5)
+        reg |= (int(self.sprite_zero_hit) << 6)
+        reg |= (int(self.vertical_blank) << 7)
+
+        return reg
+
+    @reg.setter
+    def reg(self, value):
+        self.unused = int((value >> 0) & 0x10)
+        self.sprite_overflow = bool((value >> 5) & 0x01)
+        self.sprite_zero_hit = bool((value >> 6) & 0x01)
+        self.vertical_blank = bool((value >> 7) & 0x01)
+
+@dataclass
+class MaskReg:
+    grayscale: bool = False
+    render_background_left: bool = False
+    render_sprites_left: bool = False
+    render_background: bool = False
+    render_sprites: bool = False
+    enhance_red: bool = False
+    enhance_green: bool = False
+    enhance_blue: bool = False
+
+    def __init__(self):
+        self.reg = 0x00
+
+    @property
+    def reg(self):
+        reg = 0x00
+        reg |= (int(self.grayscale) << 0)
+        reg |= (int(self.render_background_left) << 1)
+        reg |= (int(self.render_sprites_left) << 1)
+        reg |= (int(self.render_background) << 3)
+        reg |= (int(self.render_sprites) << 4)
+        reg |= (int(self.enhance_red) << 5)
+        reg |= (int(self.enhance_green) << 6)
+        reg |= (int(self.enhance_blue) << 7)
+
+        return reg
+
+    @reg.setter
+    def reg(self, value):
+        self.grayscale = bool((value >> 0) & 0x01)
+        self.render_background_left = bool((value >> 1) & 0x01)
+        self.render_sprites_left = bool((value >> 1) & 0x01)
+        self.render_background = bool((value >> 3) & 0x01)
+        self.render_sprites = bool((value >> 4) & 0x01)
+        self.enhance_red = bool((value >> 5) & 0x01)
+        self.enhance_green = bool((value >> 6) & 0x01)
+        self.enhance_blue = bool((value >> 7) & 0x01)
+
+@dataclass
+class ControlReg:
+    nametable_x: bool = False
+    nametable_y: bool = False
+    increment_mode: bool = False
+    pattern_sprite: bool = False
+    pattern_background: bool = False
+    sprite_size: bool = False
+    slave_mode: bool = False # unused
+    enable_nmi: bool = False
+
+    def __init__(self):
+        self.reg = 0x00
+
+    @property
+    def reg(self):
+        reg = 0x00
+        reg |= (int(self.nametable_x) << 0)
+        reg |= (int(self.nametable_y) << 1)
+        reg |= (int(self.increment_mode) << 2)
+        reg |= (int(self.pattern_sprite) << 3)
+        reg |= (int(self.pattern_background) << 4)
+        reg |= (int(self.sprite_size) << 5)
+        reg |= (int(self.slave_mode) << 6)
+        reg |= (int(self.enable_nmi) << 7)
+
+        return reg
+
+    @reg.setter
+    def reg(self, value):
+        self.nametable_x = bool((value >> 0) & 0x01)
+        self.nametable_y = bool((value >> 1) & 0x01)
+        self.increment_mode = bool((value >> 2) & 0x01)
+        self.pattern_sprite = bool((value >> 3) & 0x01)
+        self.pattern_background = bool((value >> 4) & 0x01)
+        self.sprite_size = bool((value >> 5) & 0x01)
+        self.slave_mode = bool((value >> 6) & 0x01)
+        self.enable_nmi = bool((value >> 7) & 0x01)
+
 
 class olc2C02:
     def __init__(self):
@@ -16,6 +133,14 @@ class olc2C02:
         self.frame_complete = False
         self.scanline = 0
         self.cycle = 0
+
+        self.status = StatusReg()
+        self.mask = MaskReg()
+        self.control = ControlReg()
+
+        self.address_latch = 0x00
+        self.ppu_data_buffer = 0x00
+        self.ppu_address = 0x0000
 
         if True:
             self.palScreen[0x00] = (84, 84, 84)
@@ -104,14 +229,46 @@ class olc2C02:
     def getNameTable(self, i):
         return self.sprNameTable[i]
 
-    def getPatternTable(self, i):
+    def getColorFromPaletteRam(self, palette, pixel):
+        return self.palScreen[self.ppuRead(0x3F00 + (palette << 2) + pixel) & 0x3F]
+
+    def getPalette(self, palette):
+        pal = []
+        for i in range(4):
+            pal.append(self.getColorFromPaletteRam(palette, i))
+        
+        return pal
+
+
+    def getPatternTable(self, i, palette):
+        for nTileY in range(16):
+            for nTileX in range(16):
+                nOffset = nTileY * 256 + nTileX * 16
+
+                for row in range(8):
+                    tile_lsb = self.ppuRead(i * 0x1000 + nOffset + row + 0x0000)
+                    tile_msb = self.ppuRead(i * 0x1000 + nOffset + row + 0x0008)
+
+                    for col in range(8):
+                        pixel = (tile_lsb & 0x01) + (tile_msb & 0x01)
+                        tile_lsb >>= 1
+                        tile_msb >>= 1
+
+                        self.sprPatternTable[i].setPixel((
+                                nTileX * 8 + (7 - col),
+                                nTileY * 8 + row
+                            ), 
+                            self.getColorFromPaletteRam(palette, pixel)
+                        )
+        
+        toFile(f'sprPatternTable{i}.txt', self.sprPatternTable[i].imageArray)
         return self.sprPatternTable[i]
 
     def cpuWrite(self, addr, data):
         if (addr == 0x0000): # Control
-            pass
+            self.control.reg = data
         elif (addr == 0x0001): # Mask
-            pass
+            self.mask.reg = data
         elif (addr == 0x0002): # Status
             pass
         elif (addr == 0x0003): # OAM Address
@@ -121,8 +278,15 @@ class olc2C02:
         elif (addr == 0x0005): # Scroll
             pass
         elif (addr == 0x0006): # PPU Address
-            pass
+            if self.address_latch == 0:
+                self.ppu_address = (self.ppu_address & 0x00FF) | data
+                self.address_latch = 1
+            else:
+                self.ppu_address = (self.ppu_address & 0xFF00) | (data << 8)
+                self.address_latch = 0
         elif (addr == 0x0007): # PPU Data
+            self.ppuWrite(self.ppu_address, data)
+            self.ppu_address += 1
             pass
         
 
@@ -134,7 +298,10 @@ class olc2C02:
         elif (addr == 0x0001): # Mask
             pass
         elif (addr == 0x0002): # Status
-            pass
+            self.status.vertical_blank = True
+            data = (self.status.reg & 0xE0) | (self.ppu_data_buffer & 0x1F)
+            self.status.vertical_blank = False
+            self.address_latch = 0
         elif (addr == 0x0003): # OAM Address
             pass
         elif (addr == 0x0004): # OAM Data
@@ -144,7 +311,13 @@ class olc2C02:
         elif (addr == 0x0006): # PPU Address
             pass
         elif (addr == 0x0007): # PPU Data
-            pass
+            data = self.ppu_data_buffer
+            self.ppu_data_buffer = self.ppuRead(self.ppu_address)
+
+            if self.ppu_address > 0x3F00:
+                data = self.ppu_data_buffer
+
+            self.ppu_address += 1
         
         return data
 
@@ -156,11 +329,39 @@ class olc2C02:
         if toMapper:
             pass
 
+        elif addr >= 0x0000 and addr <= 0x1FFF:
+            data = self.tblPattern[(addr & 0x1000) >> 12][addr & 0x0FFF]
+
+        elif addr >= 0x2000 and addr <= 0x3EFF:
+            pass
+
+        elif addr >= 0x3F00 and addr <= 0x3FFF:
+            addr &= 0x001F
+            addr = 0x0000 if addr == 0x0010 else addr
+            addr = 0x0004 if addr == 0x0014 else addr
+            addr = 0x0008 if addr == 0x0018 else addr
+            addr = 0x000C if addr == 0x001C else addr
+            data = self.tblPalette[addr]
+
         return data
 
     def ppuWrite(self, addr, data):
         addr &= 0x3FFF
 
-        data, toMapper = self.cart.ppuWrite(addr, data)
+        toMapper = self.cart.ppuWrite(addr, data)
         if toMapper:
             pass
+
+        elif addr >= 0x0000 and addr <= 0x1FFF:
+            self.tblPattern[(addr & 0x1000) >> 12][addr & 0x0FFF] = data
+
+        elif addr >= 0x2000 and addr <= 0x3EFF:
+            pass
+
+        elif addr >= 0x3F00 and addr <= 0x3FFF:
+            addr &= 0x001F
+            addr = 0x0000 if addr == 0x0010 else addr
+            addr = 0x0004 if addr == 0x0014 else addr
+            addr = 0x0008 if addr == 0x0018 else addr
+            addr = 0x000C if addr == 0x001C else addr
+            self.tblPalette[addr] = data

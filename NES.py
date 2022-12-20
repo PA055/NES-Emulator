@@ -5,6 +5,7 @@ import olc2C02Class
 from BusClass import Bus
 from CartridgeClass import Cartridge
 from collections import OrderedDict
+import time
 
 
 cart = None
@@ -12,10 +13,14 @@ ppu = olc2C02Class.olc2C02()
 cpu = olc6502Class.olc6502()
 nes = Bus(cpu, ppu)
 
+mapAsm = OrderedDict()
+
+
 bEmulationRun = False
 fResidualTime = 0.0
 
-mapAsm = OrderedDict()
+nSelectedPalette = 0x00
+
 
 def toFile(filename, data, type='list', mode = 'w+'):
     with open(filename, mode) as f:
@@ -117,7 +122,7 @@ def Start(game):
     #nes.ram[0xFFFC] = 0x00
     #nes.ram[0xFFFD] = 0x80
 
-    cart = Cartridge('ROMs/Super Mario Bros.nes')
+    cart = Cartridge('ROMs/nestest.nes')
     if not cart.imageValid():
         return False
 
@@ -125,25 +130,30 @@ def Start(game):
 
     mapAsm = nes.cpu.disassemble(0x0000, 0xFFFF)
 
-    toFile('DissasembledSMB.txt', [instr for addr, instr in mapAsm.items() if addr >= 0x8000])
+    toFile('Dissasembled.txt', [instr for addr, instr in mapAsm.items()])
 
     nes.cpu.reset()
     return True
 
 def Update(game):
-    global bEmulationRun, fResidualTime
+    global bEmulationRun, fResidualTime, nSelectedPalette
+        
+    print(game.getFPS())
+
     game.clearScreen()
     key = game.getKeyDown()
-    
     if bEmulationRun:
         if fResidualTime > 0:
             fResidualTime -= game.getElapsedTime()
         else:
             fResidualTime += (1 / 60) - game.getElapsedTime()
+
             nes.clock()
             while not nes.ppu.frame_complete:
                 nes.clock()
+            
             nes.ppu.frame_complete = False
+        
     else:
         if (key == K_c):
             nes.clock()
@@ -167,14 +177,28 @@ def Update(game):
 
     if key == K_r:
         nes.reset()
-    
 
-    
-    DrawCode(game, 520, 80, 26)
+    if key == K_p:
+        nSelectedPalette = (nSelectedPalette + 1) & 0x07
+        
+    DrawCode(game, 520, 80, 16)
     DrawCPU(game, 520, 2)
+    DrawRam(game, 6, 300, 0x3F00, 10, 4)
 
-    game.drawSprite(nes.ppu.getScreen(), (0, 0), scale=2)
+    toFile('palette.txt', nes.ppu.getPalette(nSelectedPalette))
 
+    nSwatchSize = 6
+    for p in range(8):
+        for s in range(4):
+            game.fillRect((516 + p * (nSwatchSize * 5) + s * nSwatchSize, 340), (nSwatchSize, nSwatchSize), nes.ppu.getColorFromPaletteRam(p, s))
+
+    game.drawRectXY(516 + nSelectedPalette * (nSwatchSize * 5) - 1, 339, (nSwatchSize * 4), nSwatchSize, Color.WHITE)
+    
+    game.drawSprite(nes.ppu.getPatternTable(0, nSelectedPalette), (516, 348))
+    game.drawSprite(nes.ppu.getPatternTable(1, nSelectedPalette), (648, 348))
+    
+    game.drawSprite(nes.ppu.getScreen(), (0, 0), scale=1)
+    
     return True
 
     
