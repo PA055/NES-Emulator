@@ -52,5 +52,9 @@ class Bus:
                 self.nInstructionCounter += 1
                 #print('CPU Instruction Counter:', self.nInstructionCounter)
 
+        if (self.ppu.nmi):
+            self.ppu.nmi = False
+            self.cpu.nmi()
+
         self.nSystemClockCounter += 1
         #print("PPU Instruction Counter:", self.nSystemClockCounter)

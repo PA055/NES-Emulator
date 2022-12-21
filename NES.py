@@ -181,9 +181,8 @@ def Update(game):
     if key == K_p:
         nSelectedPalette = (nSelectedPalette + 1) & 0x07
         
-    DrawCode(game, 520, 80, 16)
-    DrawCPU(game, 520, 2)
-    DrawRam(game, 6, 300, 0x3F00, 10, 4)
+    #DrawCode(game, 520, 80, 20)
+    #DrawCPU(game, 520, 2)
 
     toFile('palette.txt', nes.ppu.getPalette(nSelectedPalette))
 
@@ -197,8 +196,8 @@ def Update(game):
     game.drawSprite(nes.ppu.getPatternTable(0, nSelectedPalette), (516, 348))
     game.drawSprite(nes.ppu.getPatternTable(1, nSelectedPalette), (648, 348))
     
-    game.drawSprite(nes.ppu.getScreen(), (0, 0), scale=1)
-    
+    game.drawSprite(nes.ppu.getScreen(), (0, 0), scale=2)
+
     return True
 
     

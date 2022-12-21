@@ -23,12 +23,18 @@ def toFile(filename, data, type='list', mode = 'w+'):
         elif type == 'raw':
             f.write(str(data))
 
+HORIZONTAL = 1
+VERTICAL = 2
+ONESCREEN_LO = 3
+ONESCREEN_HI = 4
+
 class Cartridge:
     def __init__(self, filename):
         self.vPRGMemory = []
         self.vCHRMemory = []
 
         self.nMapperID = 0
+        self.mirror = HORIZONTAL
         self.nPRGBanks = 0
         self.nCHRBanks = 0
 
@@ -62,6 +68,7 @@ class Cartridge:
                 ifs.read(512)
             
             self.nMapperID = ((self.header.mapper2 >> 4) << 4) | (self.header.mapper1 >> 4)
+            self.mirror = VERTICAL if (self.header.mapper1 & 0x01) else HORIZONTAL
 
             nFileType = 1
 
