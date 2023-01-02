@@ -260,7 +260,6 @@ class olc2C02:
             self.palScreen[0x3D] = (160, 162, 160)
             self.palScreen[0x3E] = (0, 0, 0)
             self.palScreen[0x3F] = (0, 0, 0)
-        
 
     def connectCartridge(self, cartridge):
         self.cart = cartridge
@@ -308,7 +307,6 @@ class olc2C02:
             self.bg_shifter_attrib_lo = (self.bg_shifter_attrib_lo & 0xFF00) | (0xFF if (self.bg_next_tile_attrib & 0b01) else 0x00)
             self.bg_shifter_attrib_hi = (self.bg_shifter_attrib_hi & 0xFF00) | (0xFF if (self.bg_next_tile_attrib & 0b10) else 0x00)
             
-
         def UpdateShifters():
             if self.mask.render_background:
                 self.bg_shifter_pattern_lo <<= 1
@@ -469,7 +467,6 @@ class olc2C02:
             self.vram_addr.reg += 32 if self.control.increment_mode else 1
             pass
         
-
     def cpuRead(self, addr, rdonly=False):
         data = 0x00
 
