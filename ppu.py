@@ -153,7 +153,7 @@ class LoopyReg:
 
 
 
-class olc2C02:
+class PPU:
     def __init__(self):
         self.cart = None
         self.tblName = [[0 for i in range(1024)] for j in range(2)]

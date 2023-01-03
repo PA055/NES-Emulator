@@ -21,7 +21,7 @@ N = 7
 
 # TODO: Overflow detect all sets !IMPORTANT!
 
-class olc6502:    
+class CPU:    
     def __init__(self):
         self.bus = None
         self.a      = 0x00

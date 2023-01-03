@@ -1,13 +1,20 @@
 import pygame, sys, time
 from pygame.locals import *
 from PixelGameEngine import Color, Sprite
-import olc6502Class
-import olc2C02Class
+import cpu6502
+import ppu
 from BusClass import Bus
 from CartridgeClass import Cartridge
 from collections import OrderedDict
 
-
+C = 0
+Z = 1
+I = 2
+D = 3
+B = 4
+U = 5
+V = 6
+N = 7
 
 pygame.init()
 
@@ -18,9 +25,9 @@ clock = pygame.time.Clock()
 font = pygame.font.Font('kongtext.ttf', 8)
 
 cart = None
-ppu = olc2C02Class.olc2C02()
-cpu = olc6502Class.olc6502()
-nes = Bus(cpu, ppu)
+ppu = ppu.PPU()
+cpu6502 = cpu6502.CPU()
+nes = Bus(cpu6502, ppu)
 
 mapAsm = OrderedDict()
 
@@ -51,28 +58,28 @@ def drawCPU(x, y):
     surf = font.render('STATUS:', False, Color.WHITE)
     screen.blit(surf, (x, y))
 
-    surf = font.render('N', False, Color.GREEN if (nes.cpu.status & (1 << olc6502Class.N)) else Color.RED)
+    surf = font.render('N', False, Color.GREEN if (nes.cpu.status & (1 << N)) else Color.RED)
     screen.blit(surf, (x + 74, y))
 
-    surf = font.render('V', False, Color.GREEN if (nes.cpu.status & (1 << olc6502Class.V)) else Color.RED)
+    surf = font.render('V', False, Color.GREEN if (nes.cpu.status & (1 << V)) else Color.RED)
     screen.blit(surf, (x + 88, y))
     
-    surf = font.render('-', False, Color.GREEN if (nes.cpu.status & (1 << olc6502Class.U)) else Color.RED)
+    surf = font.render('-', False, Color.GREEN if (nes.cpu.status & (1 << U)) else Color.RED)
     screen.blit(surf, (x + 106, y))
     
-    surf = font.render('B', False, Color.GREEN if (nes.cpu.status & (1 << olc6502Class.B)) else Color.RED)
+    surf = font.render('B', False, Color.GREEN if (nes.cpu.status & (1 << B)) else Color.RED)
     screen.blit(surf, (x + 120, y))
     
-    surf = font.render('D', False, Color.GREEN if (nes.cpu.status & (1 << olc6502Class.D)) else Color.RED)
+    surf = font.render('D', False, Color.GREEN if (nes.cpu.status & (1 << D)) else Color.RED)
     screen.blit(surf, (x + 138, y))
     
-    surf = font.render('I', False, Color.GREEN if (nes.cpu.status & (1 << olc6502Class.I)) else Color.RED)
+    surf = font.render('I', False, Color.GREEN if (nes.cpu.status & (1 << I)) else Color.RED)
     screen.blit(surf, (x + 154, y))
     
-    surf = font.render('Z', False, Color.GREEN if (nes.cpu.status & (1 << olc6502Class.Z)) else Color.RED)
+    surf = font.render('Z', False, Color.GREEN if (nes.cpu.status & (1 << Z)) else Color.RED)
     screen.blit(surf, (x + 170, y))
     
-    surf = font.render('C', False, Color.GREEN if (nes.cpu.status & (1 << olc6502Class.C)) else Color.RED)
+    surf = font.render('C', False, Color.GREEN if (nes.cpu.status & (1 << C)) else Color.RED)
     screen.blit(surf, (x + 188, y))
 
     surf = font.render('PC: $' + hex(nes.cpu.pc, 4), False, Color.WHITE)
@@ -90,7 +97,6 @@ def drawCPU(x, y):
     surf = font.render('Stack Ptr: $' + hex(nes.cpu.stkp, 4), False, Color.WHITE)
     screen.blit(surf, (x, y + 50))
     
-
 def drawCode(x, y, nLines):
     pcOffset = 0
     nLineY = (nLines >> 1) * 10 + y
@@ -165,15 +171,15 @@ def Update(dt):
     # print(f'Palette: { (end - start) } sec')
 
 
-    start = time.perf_counter()
-    screen.blit( nes.ppu.getPatternTable(0, nSelectedPalette).surf, (648, 348))
-    end = time.perf_counter()
-    # print(f'Pattern Table 0: { (end - start) } sec')
+    # start = time.perf_counter()
+    # screen.blit( nes.ppu.getPatternTable(0, nSelectedPalette).surf, (648, 348))
+    # end = time.perf_counter()
+    # # print(f'Pattern Table 0: { (end - start) } sec')
 
-    start = time.perf_counter()
-    screen.blit( nes.ppu.getPatternTable(1, nSelectedPalette).surf, (516, 348))
-    end = time.perf_counter()
-    # print(f'Pattern Table 1: { (end - start) } sec')
+    # start = time.perf_counter()
+    # screen.blit( nes.ppu.getPatternTable(1, nSelectedPalette).surf, (516, 348))
+    # end = time.perf_counter()
+    # # print(f'Pattern Table 1: { (end - start) } sec')
 
     start = time.perf_counter()
     screen.blit(pygame.transform.scale2x(nes.ppu.getScreen().surf), (0, 0))
