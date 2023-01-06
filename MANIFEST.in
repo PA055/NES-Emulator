@@ -1,0 +1,2 @@
+include NES/cycore/*.pxd
+include NES/cycore/*.pyx
