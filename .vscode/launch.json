@@ -6,6 +6,7 @@
     "configurations": [
         {
             "name": "Python: NES.py",
+            "preLaunchTask": "build setup",
             "type": "python",
             "request": "launch",
             "program": "${workspaceFolder}/NES.py",
