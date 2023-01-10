@@ -10,6 +10,12 @@ class INSTRUCTION:
     addrmode: Callable
     cycles: int
 
+    def __init__(self, name, operate, addrmode, cycles):
+        self.name = name
+        self.operate = operate
+        self.addrmode = addrmode
+        self.cycles = cycles
+
 
 DEF C = 0
 DEF Z = 1
@@ -24,6 +30,12 @@ DEF N = 7
 # TODO: Overflow detect all sets !IMPORTANT!
 
 cdef class CPU:
+
+    cdef object bus
+    cdef public unsigned char a, x, y, stkp, status, fetched, opcode
+    cdef public unsigned short pc, addr_abs, addr_rel
+    cdef public unsigned int cycles, temp
+    cdef list lookup
 
     def __init__(self):
         self.a = 0x00
@@ -304,7 +316,7 @@ cdef class CPU:
     cdef bint complete(self):
         return self.cycles == 0
 
-    cdef object disassemble(self, unsigned short nStart, unsigned short nStop):
+    cdef public object disassemble(self, unsigned short nStart, unsigned short nStop):
         cdef unsigned short addr
         cdef unsigned char value, lo, hi
         cdef int line_addr
