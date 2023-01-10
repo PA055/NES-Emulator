@@ -1,4 +1,4 @@
-import pygame, sys, time
+import pygame, sys, time, cProfile, pstats
 from pygame.locals import *
 from PixelGameEngine import Color, Sprite
 import cpu6502
@@ -191,6 +191,24 @@ def Update(dt):
 
 
 Start()
+
+
+with cProfile.Profile() as pr:
+    nes.clock()
+    while not nes.ppu.frame_complete:
+        nes.clock()
+    
+    nes.clock()
+    while not nes.cpu.complete():
+        nes.clock()
+
+    nes.ppu.frame_complete = False
+    end = time.perf_counter()
+    
+stats = pstats.Stats(pr)
+stats.sort_stats(pstats.SortKey.TIME)
+stats.dump_stats(filename='nes_clock.prof')
+
 
 while True:
     dt = clock.tick(100) / 1000
