@@ -1,0 +1,10 @@
+from cpu import CPU
+
+cdef class Bus:
+    cdef:
+        CPU cpu
+        unsigned char ram[64 * 1024]
+
+    cdef:
+        unsigned char read(self, unsigned short addr, bint bReadOnly = False)
+        void write(self, unsigned short addr, unsigned char data)

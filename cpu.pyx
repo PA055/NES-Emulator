@@ -1,0 +1,4 @@
+
+
+cdef class CPU:
+    pass

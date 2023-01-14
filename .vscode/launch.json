@@ -5,12 +5,10 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Python: NES.py",
+            "name": "Launch - main.py",
             "type": "python",
             "request": "launch",
-            "program": "${workspaceFolder}/NES.py",
-            "console": "integratedTerminal",
-            "justMyCode": true
+            "preLaunchTask": "Compile",
         }
     ]
 }
